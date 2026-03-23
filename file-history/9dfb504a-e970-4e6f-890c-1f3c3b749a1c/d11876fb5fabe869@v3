@@ -1,0 +1,144 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-17T04:25:00.000Z"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "custom-api-deepseek-com": {
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKey": "sk-2561cd3ed4cd4b159d2cc6f8b3899cf4",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "name": "deepseek-chat (Custom Provider)",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 65536,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "custom-api-deepseek-com/deepseek-chat"
+      },
+      "models": {
+        "custom-api-deepseek-com/deepseek-chat": {
+          "alias": "deepseek-chat"
+        }
+      },
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "anan",
+        "default": true,
+        "name": "安安 - 技术员",
+        "workspace": "/root/openclaw-instances/anan/workspace",
+        "model": {
+          "primary": "custom-api-deepseek-com/deepseek-chat"
+        }
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "bindings": [
+    {
+      "agentId": "anan",
+      "match": {
+        "channel": "feishu",
+        "accountId": "default"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "threadSession": true,
+      "replyMode": "auto",
+      "appId": "cli_a939e8f31a0a5bd2",
+      "appSecret": "cFj3gRo65uBI351JqqCLPgTC635IqPDs",
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "groupPolicy": "allowlist",
+      "groupAllowFrom": [
+        "ou_3df74d8f031817742653c20cf07057a3"
+      ],
+      "accounts": {
+        "default": {
+          "botName": "安安 - 技术员"
+        }
+      },
+      "dmPolicy": "pairing"
+    }
+  },
+  "gateway": {
+    "port": 18793,
+    "mode": "local",
+    "bind": "lan",
+    "auth": {
+      "mode": "token",
+      "token": "58a45e590239c0cda4a3c61d15ec82630c513e75d77274d9"
+    }
+  },
+  "plugins": {
+    "load": {
+      "paths": [
+        "/root/.npm-global/lib/node_modules/openclaw/extensions/feishu"
+      ]
+    },
+    "entries": {
+      "feishu": {
+        "enabled": false
+      },
+      "openclaw-lark": {
+        "enabled": true
+      }
+    },
+    "installs": {
+      "openclaw-lark": {
+        "source": "npm",
+        "spec": "@larksuite/openclaw-lark",
+        "installPath": "/root/.openclaw/extensions/openclaw-lark",
+        "version": "2026.3.15",
+        "resolvedName": "@larksuite/openclaw-lark",
+        "resolvedVersion": "2026.3.15",
+        "resolvedSpec": "@larksuite/openclaw-lark@2026.3.15",
+        "integrity": "sha512-YGk63CgYG+YDUO2+TxdSPJZA6km52OpqAqf26vZHMUqawEKhiT4bcfD5JHh6VGazjUwRk5Bze1UyVKncc0csBA==",
+        "shasum": "997cb8ee9cf66dcd3a24477cb5f59f5fb1a57fff",
+        "resolvedAt": "2026-03-16T12:25:51.430Z",
+        "installedAt": "2026-03-16T12:26:54.413Z"
+      }
+    },
+    "allow": [
+      "openclaw-lark"
+    ]
+  }
+}

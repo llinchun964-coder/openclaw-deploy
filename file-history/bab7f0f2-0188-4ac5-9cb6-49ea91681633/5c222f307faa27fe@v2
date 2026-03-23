@@ -1,0 +1,45 @@
+#!/bin/bash
+
+echo "=== Killing all openclaw ==="
+pkill -f "openclaw gateway" 2>/dev/null || true
+sleep 3
+
+# Create clean instance dirs
+rm -rf /root/openclaw-instances
+mkdir -p /root/openclaw-instances/main
+mkdir -p /root/openclaw-instances/cto
+mkdir -p /root/openclaw-instances/designer
+
+# Copy configs
+echo "=== Copying configs ==="
+cp -a /root/.openclaw /root/openclaw-instances/main/
+cp -a /root/openclaw-docker/instances/cto/.openclaw /root/openclaw-instances/cto/
+cp -a /root/openclaw-docker/instances/designer/.openclaw /root/openclaw-instances/designer/
+
+# Copy a2a-gateway
+for instance in main cto designer; do
+  mkdir -p /root/openclaw-instances/$instance/.openclaw/extensions
+  cp -a /root/.openclaw/extensions/a2a-gateway /root/openclaw-instances/$instance/.openclaw/extensions/
+done
+
+# Start main first
+echo "=== Starting main (南朝译 COO) on 18789/18800 ==="
+HOME=/root/openclaw-instances/main nohup openclaw gateway > /var/log/openclaw-main.log 2>&1 &
+sleep 8
+
+# Start cto
+echo "=== Starting cto on 18701/18901 ==="
+HOME=/root/openclaw-instances/cto nohup openclaw gateway > /var/log/openclaw-cto.log 2>&1 &
+sleep 8
+
+# Start designer
+echo "=== Starting designer on 18702/18902 ==="
+HOME=/root/openclaw-instances/designer nohup openclaw gateway > /var/log/openclaw-designer.log 2>&1 &
+sleep 8
+
+echo ""
+echo "=== Ports ==="
+ss -tlnp 2>&1 | grep -E '187|188|189' | sort
+echo ""
+echo "=== Processes ==="
+ps aux | grep openclaw | grep -v grep

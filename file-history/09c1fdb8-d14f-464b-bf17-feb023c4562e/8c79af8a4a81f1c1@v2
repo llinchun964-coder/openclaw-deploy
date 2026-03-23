@@ -1,0 +1,41 @@
+# 敏感信息（不提交到 Git）
+.env
+.env.local
+config/credentials/*.json
+config/credentials/*.key
+secrets/
+*.pem
+*.key
+*.p12
+
+# Docker 镜像文件（太大）
+images/*.tar
+images/*.tar.gz
+
+# 大数据文件
+data/
+*.rdb
+*.dump
+
+# 日志文件
+logs/
+*.log
+*.log.*
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Node 依赖
+node_modules/
+
+# 运行时数据
+runtime/
+cache/

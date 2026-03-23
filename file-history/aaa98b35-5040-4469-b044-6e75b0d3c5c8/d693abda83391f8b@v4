@@ -1,0 +1,212 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-18T00:28:59.156Z"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "阿里云百炼": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "sk-sp-e6083128df284ca3b4fdbe6d987d576c",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          {
+            "id": "text-embedding-v3",
+            "name": "text-embedding-v3",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "阿里云百炼/qwen3.5-plus"
+      },
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "healer",
+        "default": true,
+        "name": "南南（业务部）",
+        "workspace": "/root/workspace"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full",
+    "sessions": {
+      "visibility": "all"
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "healer",
+      "match": {
+        "channel": "feishu",
+        "accountId": "healer-bot"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "protocol": "websocket",
+      "ignoreBots": false,
+      "appId": "cli_a9254ff3acf9dcc9",
+      "appSecret": "nwOUUuPPCE6nshi2PnQrVby8QDl7NUih",
+      "accounts": {
+        "healer-bot": {
+          "enabled": true,
+          "appId": "cli_a9254ff3acf9dcc9",
+          "appSecret": "nwOUUuPPCE6nshi2PnQrVby8QDl7NUih",
+          "botName": "南南"
+        },
+        "default": {
+          "groupPolicy": "mention"
+        }
+      },
+      "groupPolicy": "mention"
+    }
+  },
+  "gateway": {
+    "port": 18700,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "http://198.200.39.21:1420",
+        "http://172.17.0.1:1420"
+      ],
+      "allowInsecureAuth": false
+    },
+    "auth": {
+      "mode": "token",
+      "token": "openclaw-token-2026",
+      "rateLimit": {
+        "maxAttempts": 10,
+        "windowMs": 60000,
+        "lockoutMs": 300000
+      }
+    }
+  },
+  "plugins": {
+    "allow": [
+      "telegram",
+      "a2a-gateway",
+      "feishu"
+    ],
+    "load": {
+      "paths": [
+        "/root/.openclaw/workspace/plugins/a2a-gateway"
+      ]
+    },
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "server": {
+            "port": 18800,
+            "host": "0.0.0.0"
+          },
+          "routing": {
+            "defaultAgentId": "healer"
+          },
+          "agentCard": {
+            "name": "nannan",
+            "description": "南南",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "Chat",
+                "description": "Chat with 南南"
+              }
+            ],
+            "url": "http://198.200.39.21:18904/a2a/jsonrpc"
+          },
+          "security": {
+            "inboundAuth": "bearer",
+            "token": "922f94fdbe1371559d9134975957e6357afddbf51a571994"
+          },
+          "peers": [
+            {
+              "name": "nanchaoyi",
+              "agentCardUrl": "http://172.18.0.1:18800/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "63b7bf1327af8cd3d5b22b58efca2e06676c17c471b28b69"
+              }
+            },
+            {
+              "name": "nanchaoyi-tech",
+              "agentCardUrl": "http://172.18.0.3:18800/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "daa3abfb658eaccc14382d8646561f34e5a009ce644db300"
+              }
+            },
+            {
+              "name": "nanchaoyi-ai-image",
+              "agentCardUrl": "http://172.18.0.2:18800/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "520ecd08fe46f985f2cc58bcf4aa0af5cfaa40d58aeb51a9"
+              }
+            },
+            {
+              "name": "xiaohongshu-yunying",
+              "agentCardUrl": "http://172.18.0.5:18800/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "58904d79ac233c6d5ec55076065e528a5ef6d2a27fc17b8c"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "installs": {
+      "feishu": {
+        "source": "npm",
+        "spec": "@openclaw/feishu",
+        "installPath": "/root/.openclaw/extensions/feishu",
+        "version": "2026.3.13"
+      }
+    }
+  }
+}

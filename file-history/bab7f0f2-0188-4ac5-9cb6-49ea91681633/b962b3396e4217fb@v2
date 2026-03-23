@@ -1,0 +1,78 @@
+#!/bin/bash
+
+set -e
+
+echo "=== Cleaning up ==="
+pkill -f "openclaw gateway" 2>/dev/null || true
+sleep 3
+
+# Create instance home dirs
+mkdir -p /root/openclaw-instances/main
+mkdir -p /root/openclaw-instances/cto
+mkdir -p /root/openclaw-instances/designer
+mkdir -p /root/openclaw-instances/xhs
+mkdir -p /root/openclaw-instances/healer
+mkdir -p /var/log
+
+# Copy configs
+echo "=== Copying configs ==="
+rm -rf /root/openclaw-instances/main/.openclaw
+cp -a /root/.openclaw /root/openclaw-instances/main/
+
+rm -rf /root/openclaw-instances/cto/.openclaw
+cp -a /root/openclaw-docker/instances/cto/.openclaw /root/openclaw-instances/cto/
+
+rm -rf /root/openclaw-instances/designer/.openclaw
+cp -a /root/openclaw-docker/instances/designer/.openclaw /root/openclaw-instances/designer/
+
+rm -rf /root/openclaw-instances/xhs/.openclaw
+cp -a /root/openclaw-docker/instances/xhs/.openclaw /root/openclaw-instances/xhs/
+
+rm -rf /root/openclaw-instances/healer/.openclaw
+cp -a /root/openclaw-docker/instances/healer/.openclaw /root/openclaw-instances/healer/
+
+# Copy a2a-gateway extension
+echo "=== Copying a2a-gateway ==="
+for instance in main cto designer xhs healer; do
+  mkdir -p /root/openclaw-instances/$instance/.openclaw/extensions
+  rm -rf /root/openclaw-instances/$instance/.openclaw/extensions/a2a-gateway
+  cp -a /root/.openclaw/extensions/a2a-gateway /root/openclaw-instances/$instance/.openclaw/extensions/
+done
+
+# Function to start and wait for port
+start_instance() {
+  local name=$1
+  local port=$2
+  local a2a_port=$3
+
+  echo "=== Starting $name ==="
+  HOME=/root/openclaw-instances/$name nohup openclaw gateway > /var/log/openclaw-$name.log 2>&1 &
+  local pid=$!
+  echo $pid > /var/run/openclaw-$name.pid
+
+  echo "Waiting for $name (port $port and $a2a_port)..."
+  for i in {1..30}; do
+    if ss -tlnp 2>/dev/null | grep -q ":$port " && ss -tlnp 2>/dev/null | grep -q ":$a2a_port "; then
+      echo "$name started successfully!"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "WARNING: $name may not have started properly"
+  return 1
+}
+
+# Start instances
+start_instance "main" "18789" "18800"
+start_instance "cto" "18701" "18901"
+start_instance "designer" "18702" "18902"
+start_instance "xhs" "18703" "18903"
+start_instance "healer" "18704" "18904"
+
+echo ""
+echo "=== All Done! ==="
+echo "Running processes:"
+ps aux | grep openclaw | grep -v grep
+echo ""
+echo "Listening ports:"
+ss -tlnp 2>&1 | grep -E '187|188|189' | sort

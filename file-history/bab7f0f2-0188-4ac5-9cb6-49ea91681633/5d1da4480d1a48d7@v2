@@ -1,0 +1,36 @@
+#!/bin/bash
+
+echo "Killing existing openclaw processes..."
+pkill -f "openclaw gateway" 2>/dev/null
+tmux kill-server 2>/dev/null
+sleep 2
+
+# Create temp dirs
+mkdir -p /tmp/openclaw-main /tmp/openclaw-cto /tmp/openclaw-designer /tmp/openclaw-xhs /tmp/openclaw-healer
+mkdir -p /var/log
+
+echo "Starting main (南朝译 COO)..."
+tmux new-session -d -s openclaw-main "cd /root && TMPDIR=/tmp/openclaw-main openclaw gateway 2>&1 | tee -a /var/log/openclaw-main.log"
+sleep 3
+
+echo "Starting cto (南朝译技术)..."
+tmux new-session -d -s openclaw-cto "TMPDIR=/tmp/openclaw-cto OPENCLAW_CONFIG_DIR=/root/openclaw-docker/instances/cto/.openclaw openclaw gateway 2>&1 | tee -a /var/log/openclaw-cto.log"
+sleep 3
+
+echo "Starting designer..."
+tmux new-session -d -s openclaw-designer "TMPDIR=/tmp/openclaw-designer OPENCLAW_CONFIG_DIR=/root/openclaw-docker/instances/designer/.openclaw openclaw gateway 2>&1 | tee -a /var/log/openclaw-designer.log"
+sleep 3
+
+echo "Starting xhs (小红书运营)..."
+tmux new-session -d -s openclaw-xhs "TMPDIR=/tmp/openclaw-xhs OPENCLAW_CONFIG_DIR=/root/openclaw-docker/instances/xhs/.openclaw openclaw gateway 2>&1 | tee -a /var/log/openclaw-xhs.log"
+sleep 3
+
+echo "Starting healer (南南)..."
+tmux new-session -d -s openclaw-healer "TMPDIR=/tmp/openclaw-healer OPENCLAW_CONFIG_DIR=/root/openclaw-docker/instances/healer/.openclaw openclaw gateway 2>&1 | tee -a /var/log/openclaw-healer.log"
+sleep 3
+
+echo "Done!"
+echo "Checking running processes..."
+ps aux | grep openclaw | grep -v grep
+echo "Checking ports..."
+ss -tlnp 2>&1 | grep -E '187|188|189'

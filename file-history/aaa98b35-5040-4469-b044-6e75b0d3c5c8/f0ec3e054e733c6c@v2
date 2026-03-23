@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""
+修复图片大小问题 - 确保图片在阿里云百炼 API 的限制范围内 (1-196601 字节)
+"""
+
+import argparse
+import base64
+import io
+import os
+import sys
+from pathlib import Path
+from PIL import Image
+
+MAX_SIZE_BYTES = 196601  # 阿里云百炼 API 限制
+MIN_SIZE_BYTES = 1
+
+
+def resize_image(image_path: Path, max_size_bytes: int = MAX_SIZE_BYTES) -> tuple[bytes, str]:
+    """
+    调整图片大小以符合 API 限制
+
+    Returns:
+        (image_bytes, format)
+    """
+    img = Image.open(image_path)
+
+    # 如果是 RGBA，转换为 RGB 以减小大小
+    if img.mode == 'RGBA':
+        background = Image.new('RGB', img.size, (255, 255, 255))
+        background.paste(img, mask=img.split()[3])
+        img = background
+
+    # 初始质量
+    quality = 95
+    width, height = img.size
+    format = 'JPEG'
+
+    while quality >= 10:
+        buf = io.BytesIO()
+        img.save(buf, format=format, quality=quality, optimize=True)
+        data = buf.getvalue()
+
+        if len(data) <= max_size_bytes:
+            if len(data) >= MIN_SIZE_BYTES:
+                return data, format.lower()
+            else:
+                # 太小了，增加质量
+                quality = min(100, quality + 10)
+                continue
+
+        # 太大了，减小质量或尺寸
+        if quality > 30:
+            quality -= 15
+        else:
+            # 质量已经很低了，缩小尺寸
+            width = int(width * 0.8)
+            height = int(height * 0.8)
+            img = img.resize((width, height), Image.Resampling.LANCZOS)
+            quality = 85
+
+    raise ValueError(f"无法将图片压缩到 {max_size_bytes} 字节以下")
+
+
+def check_and_fix_image(input_path: str, output_path: str = None) -> dict:
+    """检查并修复图片"""
+    input_path = Path(input_path)
+
+    if not input_path.exists():
+        return {"success": False, "error": f"文件不存在: {input_path}"}
+
+    # 检查原始文件大小
+    original_size = input_path.stat().st_size
+    print(f"原始文件大小: {original_size:,} 字节")
+
+    if MIN_SIZE_BYTES <= original_size <= MAX_SIZE_BYTES:
+        print("✓ 图片大小在限制范围内")
+        return {"success": True, "status": "already_ok", "size": original_size}
+
+    if original_size < MIN_SIZE_BYTES:
+        print(f"✗ 图片太小 ({original_size} 字节 < {MIN_SIZE_BYTES} 字节)")
+    else:
+        print(f"✗ 图片太大 ({original_size:,} 字节 > {MAX_SIZE_BYTES:,} 字节)")
+
+    # 调整图片
+    print("正在调整图片大小...")
+    try:
+        image_data, ext = resize_image(input_path)
+        print(f"调整后大小: {len(image_data):,} 字节")
+
+        if output_path is None:
+            output_path = str(input_path.parent / f"{input_path.stem}_resized.{ext}")
+
+        Path(output_path).write_bytes(image_data)
+        print(f"✓ 已保存到: {output_path}")
+
+        return {
+            "success": True,
+            "status": "resized",
+            "original_size": original_size,
+            "new_size": len(image_data),
+            "output_path": output_path
+        }
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="检查并修复图片大小以符合阿里云百炼 API 限制 (1-196601 字节)"
+    )
+    parser.add_argument("input", help="输入图片路径")
+    parser.add_argument("-o", "--output", help="输出图片路径 (可选)")
+    parser.add_argument("--check-only", action="store_true", help="仅检查，不修改")
+
+    args = parser.parse_args()
+
+    input_path = Path(args.input)
+
+    if not input_path.exists():
+        print(f"错误: 文件不存在: {input_path}", file=sys.stderr)
+        return 1
+
+    original_size = input_path.stat().st_size
+    print(f"文件: {input_path}")
+    print(f"大小: {original_size:,} 字节")
+    print(f"限制: {MIN_SIZE_BYTES:,} - {MAX_SIZE_BYTES:,} 字节")
+
+    if MIN_SIZE_BYTES <= original_size <= MAX_SIZE_BYTES:
+        print("\n✓ 图片大小正常！")
+        return 0
+
+    print("\n⚠️ 图片大小不符合要求！")
+
+    if args.check_only:
+        return 1
+
+    result = check_and_fix_image(args.input, args.output)
+
+    if result["success"]:
+        return 0
+    else:
+        print(f"\n错误: {result.get('error')}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

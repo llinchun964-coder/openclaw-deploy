@@ -1,0 +1,40 @@
+#!/bin/bash
+
+echo "Killing existing openclaw processes..."
+pkill -f "openclaw gateway" 2>/dev/null
+sleep 2
+
+# Create temp dirs
+mkdir -p /tmp/openclaw-main /tmp/openclaw-cto /tmp/openclaw-designer /tmp/openclaw-xhs /tmp/openclaw-healer
+mkdir -p /var/log
+
+echo "Starting main (南朝译 COO)..."
+cd /root && TMPDIR=/tmp/openclaw-main nohup openclaw gateway > /var/log/openclaw-main.log 2>&1 &
+echo $! > /var/run/openclaw-main.pid
+sleep 3
+
+echo "Starting cto (南朝译技术)..."
+TMPDIR=/tmp/openclaw-cto OPENCLAW_CONFIG_DIR=/root/openclaw-docker/instances/cto/.openclaw nohup openclaw gateway > /var/log/openclaw-cto.log 2>&1 &
+echo $! > /var/run/openclaw-cto.pid
+sleep 3
+
+echo "Starting designer..."
+TMPDIR=/tmp/openclaw-designer OPENCLAW_CONFIG_DIR=/root/openclaw-docker/instances/designer/.openclaw nohup openclaw gateway > /var/log/openclaw-designer.log 2>&1 &
+echo $! > /var/run/openclaw-designer.pid
+sleep 3
+
+echo "Starting xhs (小红书运营)..."
+TMPDIR=/tmp/openclaw-xhs OPENCLAW_CONFIG_DIR=/root/openclaw-docker/instances/xhs/.openclaw nohup openclaw gateway > /var/log/openclaw-xhs.log 2>&1 &
+echo $! > /var/run/openclaw-xhs.pid
+sleep 3
+
+echo "Starting healer (南南)..."
+TMPDIR=/tmp/openclaw-healer OPENCLAW_CONFIG_DIR=/root/openclaw-docker/instances/healer/.openclaw nohup openclaw gateway > /var/log/openclaw-healer.log 2>&1 &
+echo $! > /var/run/openclaw-healer.pid
+sleep 3
+
+echo "Done!"
+echo "Checking running processes..."
+ps aux | grep openclaw | grep -v grep
+echo "Checking ports..."
+ss -tlnp 2>&1 | grep -E '187|188|189'

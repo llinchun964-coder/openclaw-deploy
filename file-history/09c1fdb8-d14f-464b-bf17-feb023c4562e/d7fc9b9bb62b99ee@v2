@@ -1,0 +1,20 @@
+# Openclaw 环境变量模板
+# 复制此文件为 .env 并填入真实值
+
+# API Keys
+TAVILY_API_KEY=your_tavily_api_key_here
+MEMOS_USER_ID=your_memos_user_id_here
+
+# 飞书配置
+FEISHU_APP_ID=your_feishu_app_id
+FEISHU_APP_SECRET=your_feishu_app_secret
+FEISHU_VERIFICATION_TOKEN=your_verification_token
+FEISHU_ENCRYPT_KEY=your_encrypt_key
+
+# Redis 配置
+REDIS_HOST=localhost
+REDIS_PORT=16379
+REDIS_PASSWORD=
+
+# 其他配置
+OPENCLAW_LOG_LEVEL=info

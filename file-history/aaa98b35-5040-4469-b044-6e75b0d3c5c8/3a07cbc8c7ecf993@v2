@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""
+提取旧会话中的重要内容并保存总结
+"""
+
+import json
+from pathlib import Path
+from datetime import datetime
+
+
+def extract_session_content(jsonl_path):
+    """从 JSONL 文件中提取重要内容"""
+    important_messages = []
+
+    try:
+        with open(jsonl_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    # 检查是否是消息类型
+                    if data.get('type') == 'message':
+                        msg = data.get('message', {})
+                        role = msg.get('role', '')
+                        content_list = msg.get('content', [])
+
+                        # 提取文本内容
+                        text_content = ''
+                        for item in content_list:
+                            if isinstance(item, dict) and item.get('type') == 'text':
+                                text_content += item.get('text', '')
+
+                        if text_content:
+                            # 检查是否包含重要关键词
+                            keywords = [
+                                'CEO', '命令', 'order', '团队', '配置', '架构',
+                                '禁止', '必须', '重要', '员工', '入职', '任务',
+                                '南朝译', '南南', '小红书', '设计', '业务',
+                                '禁止空白汇报', '总控', '抖店', '电商', '运营',
+                                'MEMORY.md', 'IDENTITY.md', 'SOUL.md'
+                            ]
+                            if any(k in text_content for k in keywords):
+                                important_messages.append({
+                                    'file': jsonl_path.name,
+                                    'role': role,
+                                    'content': text_content[:800] + ('...' if len(text_content) > 800 else ''),
+                                    'timestamp': data.get('timestamp', '')
+                                })
+                except json.JSONDecodeError:
+                    continue
+    except Exception as e:
+        print(f"Error reading {jsonl_path}: {e}")
+
+    return important_messages
+
+
+def main():
+    old_sessions_dir = Path('/root/old-sessions')
+    output_file = Path('/root/.openclaw/workspace/会话重要内容总结.md')
+
+    all_messages = []
+
+    # 遍历所有 JSONL 文件
+    jsonl_files = list(old_sessions_dir.glob('*.jsonl'))
+    print(f"发现 {len(jsonl_files)} 个会话文件")
+
+    for jsonl_file in jsonl_files:
+        print(f"Processing {jsonl_file.name}...")
+        messages = extract_session_content(jsonl_file)
+        all_messages.extend(messages)
+
+    # 按时间排序
+    all_messages.sort(key=lambda x: x['timestamp'])
+
+    # 生成总结文档
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write("# 会话重要内容总结\n\n")
+        f.write(f"生成时间: {datetime.now().isoformat()}\n\n")
+        f.write(f"提取到 {len(all_messages)} 条重要消息\n\n")
+        f.write("---\n\n")
+
+        for msg in all_messages:
+            f.write(f"## 文件: {msg['file']}\n\n")
+            f.write(f"- 角色: {msg['role']}\n")
+            if msg['timestamp']:
+                f.write(f"- 时间: {msg['timestamp']}\n")
+            f.write(f"\n{msg['content']}\n\n")
+            f.write("---\n\n")
+
+    print(f"\n✓ 已提取 {len(all_messages)} 条重要消息")
+    print(f"✓ 保存到: {output_file}")
+
+
+if __name__ == '__main__':
+    main()

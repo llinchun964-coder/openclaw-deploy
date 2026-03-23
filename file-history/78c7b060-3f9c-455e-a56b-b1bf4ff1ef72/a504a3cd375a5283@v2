@@ -1,0 +1,161 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "火山引擎": {
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+        "apiKey": "8c22373b-404a-4f89-8ac0-50992681d1f3",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "ark-code-latest",
+            "name": "ark-code-latest",
+            "reasoning": false,
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "火山引擎/ark-code-latest"
+      },
+      "models": {
+        "火山引擎/ark-code-latest": {
+          "alias": "ark-code-latest"
+        }
+      },
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "zongkong",
+        "default": true,
+        "name": "总控"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "bindings": [
+    {
+      "agentId": "zongkong",
+      "match": {
+        "channel": "feishu",
+        "accountId": "zongkong"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "threadSession": true,
+      "replyMode": "auto",
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "groupPolicy": "mention",
+      "dmPolicy": "pairing",
+      "accounts": {
+        "zongkong": {
+          "appId": "cli_a93e47d9d6b85cc9",
+          "appSecret": "jPbdXA0ux9o63u7F0htrDgMBma1UAthh",
+          "botName": "总控",
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "openclaw-token-2026"
+    }
+  },
+  "plugins": {
+    "allow": [
+      "feishu",
+      "a2a-gateway"
+    ],
+    "load": {
+      "paths": [
+        "/root/.npm-global/lib/node_modules/openclaw/extensions/feishu",
+        "/root/.openclaw/extensions/a2a-gateway"
+      ]
+    },
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "server": {
+            "port": 18800,
+            "host": "0.0.0.0"
+          },
+          "agentCard": {
+            "name": "zongkong",
+            "description": "总控 - Master Controller",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "Chat",
+                "description": "Chat with 总控"
+              }
+            ]
+          },
+          "peers": [
+            {
+              "name": "shujuguan",
+              "url": "http://localhost:18801"
+            },
+            {
+              "name": "shipinzhuanyuan",
+              "url": "http://localhost:18802"
+            },
+            {
+              "name": "toushou",
+              "url": "http://localhost:18803"
+            },
+            {
+              "name": "yunyingguan",
+              "url": "http://localhost:18804"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

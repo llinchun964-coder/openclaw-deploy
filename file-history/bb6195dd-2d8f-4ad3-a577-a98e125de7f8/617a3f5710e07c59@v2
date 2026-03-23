@@ -1,0 +1,16 @@
+#!/bin/bash
+
+echo "Waiting for pairing code 953ABBN8..."
+echo "Press Ctrl+C to stop"
+
+while true; do
+    echo "$(date '+%H:%M:%S') - Checking..."
+    output=$(openclaw pairing approve feishu 953ABBN8 2>&1)
+    if echo "$output" | grep -q "No pending pairing request"; then
+        sleep 2
+    else
+        echo "$output"
+        echo "Pairing approved!"
+        break
+    fi
+done

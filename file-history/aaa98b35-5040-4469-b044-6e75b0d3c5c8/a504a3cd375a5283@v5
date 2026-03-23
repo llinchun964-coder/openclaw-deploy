@@ -1,0 +1,223 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-17T22:08:21.528Z"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "火山引擎": {
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+        "apiKey": "8c22373b-404a-4f89-8ac0-50992681d1f3",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "ark-code-latest",
+            "name": "ark-code-latest",
+            "reasoning": false,
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      },
+      "阿里云百炼": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "sk-sp-e6083128df284ca3b4fdbe6d987d576c",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "MiniMax-M2.5",
+            "name": "MiniMax-M2.5",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "火山引擎/ark-code-latest",
+        "fallbacks": [
+          "阿里云百炼/MiniMax-M2.5",
+          "阿里云百炼/qwen3.5-plus"
+        ]
+      },
+      "models": {
+        "阿里云百炼/MiniMax-M2.5": {},
+        "火山引擎/ark-code-latest": {},
+        "阿里云百炼/qwen3.5-plus": {}
+      },
+      "compaction": {
+        "mode": "default",
+        "maxHistoryShare": 0.3,
+        "recentTurnsPreserve": 10,
+        "memoryFlush": {
+          "enabled": true,
+          "forceFlushTranscriptBytes": "100kb"
+        }
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "南朝译（COO）"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "feishu",
+        "accountId": "coo-bot"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "threadSession": true,
+      "replyMode": "auto",
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "groupPolicy": "mention",
+      "dmPolicy": "pairing",
+      "accounts": {
+        "coo-bot": {
+          "appId": "cli_a9269e44a8b9dcef",
+          "appSecret": "M2iO2Z7Oi0qtBdhcdwkebhGIcqY0lIYa",
+          "botName": "南朝译",
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "http://198.200.39.21:1420",
+        "http://172.20.0.1:1420",
+        "http://172.18.0.1:1420"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "openclaw-token-2026"
+    }
+  },
+  "plugins": {
+    "allow": [
+      "telegram",
+      "a2a-gateway",
+      "feishu"
+    ],
+    "load": {
+      "paths": [
+        "/root/.openclaw/workspace/plugins/a2a-gateway"
+      ]
+    },
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "server": {
+            "port": 18800,
+            "host": "0.0.0.0"
+          },
+          "routing": {
+            "defaultAgentId": "main"
+          },
+          "agentCard": {
+            "name": "nanchaoyi",
+            "description": "南朝译 - COO",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "Chat",
+                "description": "Chat with 南朝译"
+              }
+            ]
+          },
+          "peers": [
+            {
+              "name": "nanchaoyi-tech",
+              "agentCardUrl": "http://198.200.39.21:18901/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "daa3abfb658eaccc14382d8646561f34e5a009ce644db300"
+              }
+            },
+            {
+              "name": "nannan",
+              "agentCardUrl": "http://198.200.39.21:18902/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "922f94fdbe1371559d9134975957e6357afddbf51a571994"
+              }
+            },
+            {
+              "name": "xiaohongshu-yunying",
+              "agentCardUrl": "http://198.200.39.21:18903/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "58904d79ac233c6d5ec55076065e528a5ef6d2a27fc17b8c"
+              }
+            },
+            {
+              "name": "nanchaoyi-ai-image",
+              "agentCardUrl": "http://198.200.39.21:18904/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "520ecd08fe46f985f2cc58bcf4aa0af5cfaa40d58aeb51a9"
+              }
+            }
+          ],
+          "security": {
+            "inboundAuth": "bearer",
+            "token": "63b7bf1327af8cd3d5b22b58efca2e06676c17c471b28b69"
+          }
+        }
+      }
+    }
+  }
+}

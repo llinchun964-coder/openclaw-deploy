@@ -1,0 +1,156 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKey": "sk-fbbae13f24e7496a8b5035bbbd98eec2",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "name": "deepseek-chat",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 16000,
+            "maxTokens": 4096
+          }
+        ]
+      },
+      "阿里云百炼": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "sk-sp-e6083128df284ca3b4fdbe6d987d576c",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          {
+            "id": "text-embedding-v3",
+            "name": "text-embedding-v3",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "xhs",
+        "default": true,
+        "name": "小红书运营官",
+        "workspace": "/root/workspace"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full",
+    "sessions": {
+      "visibility": "all"
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "xhs",
+      "match": {
+        "channel": "feishu",
+        "accountId": "xhs-bot"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "protocol": "websocket",
+      "ignoreBots": false,
+      "appId": "cli_a9263e3f2ab8dcc4",
+      "appSecret": "RCuc0rk6ggvT6JADjAEtje0kBCOAyHi7",
+      "accounts": {
+        "xhs-bot": {
+          "enabled": true,
+          "appId": "cli_a9263e3f2ab8dcc4",
+          "appSecret": "RCuc0rk6ggvT6JADjAEtje0kBCOAyHi7",
+          "botName": "小红书运营"
+        },
+        "default": {
+          "groupPolicy": "mention"
+        }
+      },
+      "groupPolicy": "mention"
+    }
+  },
+  "gateway": {
+    "port": 18700,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "http://198.200.39.21:1420",
+        "http://172.17.0.1:1420"
+      ],
+      "allowInsecureAuth": false
+    },
+    "auth": {
+      "mode": "token",
+      "token": "openclaw-token-2026",
+      "rateLimit": {
+        "maxAttempts": 10,
+        "windowMs": 60000,
+        "lockoutMs": 300000
+      }
+    }
+  },
+  "plugins": {
+    "allow": [
+      "feishu"
+    ],
+    "entries": {
+      "feishu": {
+        "enabled": true
+      }
+    },
+    "installs": {
+      "feishu": {
+        "source": "npm",
+        "spec": "@openclaw/feishu",
+        "installPath": "/root/.openclaw/extensions/feishu",
+        "version": "2026.3.13"
+      }
+    }
+  }
+}

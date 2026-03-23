@@ -1,0 +1,27 @@
+#!/bin/bash
+# 导出 Redis 数据
+
+BACKUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "导出 Redis 数据..."
+mkdir -p "$BACKUP_DIR/data"
+
+if ! docker ps --format '{{.Names}}' | grep -q "openclaw-redis-shared"; then
+    echo "错误: Redis 容器未运行"
+    exit 1
+fi
+
+# 触发 BGSAVE
+docker exec openclaw-redis-shared redis-cli BGSAVE
+echo "等待 Redis 保存..."
+sleep 3
+
+# 复制 RDB 文件
+docker cp openclaw-redis-shared:/data/dump.rdb "$BACKUP_DIR/data/redis-dump.rdb"
+
+if [ -f "$BACKUP_DIR/data/redis-dump.rdb" ]; then
+    echo "✓ Redis 数据已导出到: $BACKUP_DIR/data/redis-dump.rdb"
+else
+    echo "错误: 导出失败"
+    exit 1
+fi

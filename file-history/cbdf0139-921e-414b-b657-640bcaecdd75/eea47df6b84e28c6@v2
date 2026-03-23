@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+"""
+飞书 Webhook 服务
+接收飞书消息事件并自动回复
+"""
+
+import os
+import json
+import hmac
+import hashlib
+import base64
+from typing import Optional, Dict, Any
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request, HTTPException, Response
+from fastapi.responses import JSONResponse
+import uvicorn
+import requests
+
+# 加载环境变量
+load_dotenv()
+
+app = FastAPI(title="Feishu Webhook Bot")
+
+
+class FeishuBot:
+    """飞书机器人客户端"""
+
+    def __init__(self, app_id: str, app_secret: str, encrypt_key: Optional[str] = None, verification_token: Optional[str] = None):
+        self.app_id = app_id
+        self.app_secret = app_secret
+        self.encrypt_key = encrypt_key
+        self.verification_token = verification_token
+        self._tenant_access_token: Optional[str] = None
+        self.base_url = "https://open.feishu.cn/open-apis"
+
+    def get_tenant_access_token(self, force_refresh: bool = False) -> str:
+        """获取租户访问令牌"""
+        if not force_refresh and self._tenant_access_token:
+            return self._tenant_access_token
+
+        url = f"{self.base_url}/auth/v3/tenant_access_token/internal"
+        resp = requests.post(url, json={
+            "app_id": self.app_id,
+            "app_secret": self.app_secret
+        })
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("code") != 0:
+            raise Exception(f"获取访问令牌失败: {data.get('msg', '未知错误')}")
+
+        self._tenant_access_token = data["tenant_access_token"]
+        return self._tenant_access_token
+
+    def _request(self, method: str, path: str, **kwargs) -> Dict[str, Any]:
+        """发送请求到飞书 API"""
+        url = f"{self.base_url}{path}"
+        headers = kwargs.pop("headers", {})
+        headers["Authorization"] = f"Bearer {self.get_tenant_access_token()}"
+
+        resp = requests.request(method, url, headers=headers, **kwargs)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("code") != 0:
+            if data.get("code") == 99991663:  # token 过期
+                self.get_tenant_access_token(force_refresh=True)
+                return self._request(method, path, **kwargs)
+            raise Exception(f"API 请求失败: {data.get('msg', '未知错误')} (code: {data.get('code')})")
+
+        return data
+
+    def send_message(self, receive_id: str, content: str, msg_type: str = "text", receive_id_type: str = "open_id") -> Dict[str, Any]:
+        """发送消息"""
+        if msg_type == "text":
+            msg_content = json.dumps({"text": content}, ensure_ascii=False)
+        else:
+            msg_content = content
+
+        return self._request(
+            "POST",
+            "/im/v1/messages",
+            params={"receive_id_type": receive_id_type},
+            json={
+                "receive_id": receive_id,
+                "msg_type": msg_type,
+                "content": msg_content
+            }
+        )
+
+    def verify_signature(self, request_body: bytes, timestamp: str, nonce: str, signature: str) -> bool:
+        """验证请求签名"""
+        if not self.encrypt_key:
+            return True
+
+        string_to_sign = f"{timestamp}:{nonce}:{self.encrypt_key}"
+        bytes_to_sign = string_to_sign.encode('utf-8')
+        hmac_sha256 = hmac.new(bytes_to_sign, request_body, hashlib.sha256)
+        calculated_signature = base64.b64encode(hmac_sha256.digest()).decode('utf-8')
+
+        return hmac.compare_digest(calculated_signature, signature)
+
+    def generate_reply(self, message: str) -> str:
+        """根据用户消息生成回复"""
+        message_lower = message.strip().lower()
+
+        # 简单的回复规则
+        if any(keyword in message_lower for keyword in ["你好", "您好", "hi", "hello", "嗨"]):
+            return "你好！我是飞书机器人，有什么可以帮助你的吗？"
+        elif any(keyword in message_lower for keyword in ["谢谢", "感谢", "thx", "thanks"]):
+            return "不客气！很高兴能帮到你 😊"
+        elif any(keyword in message_lower for keyword in ["再见", "拜拜", "bye", "goodbye"]):
+            return "再见！有需要随时找我 👋"
+        elif any(keyword in message_lower for keyword in ["时间", "几点", "date", "time"]):
+            from datetime import datetime
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return f"当前时间是：{now}"
+        else:
+            return f"收到你的消息：「{message}」\n我还在学习中，暂时只能处理简单对话～"
+
+
+# 从环境变量获取配置
+APP_ID = os.environ.get("FEISHU_APP_ID", "")
+APP_SECRET = os.environ.get("FEISHU_APP_SECRET", "")
+ENCRYPT_KEY = os.environ.get("FEISHU_ENCRYPT_KEY", "")
+VERIFICATION_TOKEN = os.environ.get("FEISHU_VERIFICATION_TOKEN", "")
+
+bot = FeishuBot(APP_ID, APP_SECRET, ENCRYPT_KEY, VERIFICATION_TOKEN)
+
+
+@app.post("/webhook/feishu")
+async def feishu_webhook(request: Request):
+    """处理飞书事件回调"""
+    # 获取请求头
+    timestamp = request.headers.get("X-Feishu-Request-Timestamp", "")
+    nonce = request.headers.get("X-Feishu-Request-Nonce", "")
+    signature = request.headers.get("X-Feishu-Signature", "")
+
+    # 获取请求体
+    body = await request.body()
+
+    # 验证签名
+    if not bot.verify_signature(body, timestamp, nonce, signature):
+        raise HTTPException(status_code=403, detail="签名验证失败")
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="无效的 JSON")
+
+    # 处理 URL 验证挑战
+    if payload.get("type") == "url_verification":
+        return JSONResponse(content={"challenge": payload.get("challenge", "")})
+
+    # 处理事件回调
+    if payload.get("header", {}).get("event_type") == "im.message.receive_v1":
+        event = payload.get("event", {})
+        message = event.get("message", {})
+        sender = event.get("sender", {})
+
+        # 获取消息内容
+        try:
+            content = json.loads(message.get("content", "{}"))
+            text = content.get("text", "")
+        except:
+            text = ""
+
+        # 获取发送者 ID
+        sender_id = sender.get("sender_id", {}).get("open_id", "")
+
+        # 检查是否是机器人自己发的消息（避免死循环）
+        if message.get("sender", {}).get("sender_type") == "app":
+            return JSONResponse(content={"status": "ok"})
+
+        # 只有在私聊或被 @ 时才回复
+        chat_type = message.get("chat_type", "")
+        mentions = message.get("mentions", [])
+
+        should_reply = False
+        if chat_type == "p2p":
+            # 私聊直接回复
+            should_reply = True
+        elif chat_type == "group" and mentions:
+            # 群聊需要被 @
+            for mention in mentions:
+                if mention.get("id", {}).get("id_type") == "app":
+                    should_reply = True
+                    # 移除 @ 机器人的部分
+                    mention_text = mention.get("key", "")
+                    if mention_text and text.startswith(mention_text):
+                        text = text[len(mention_text):].strip()
+                    break
+
+        if should_reply and sender_id and text:
+            # 生成回复
+            reply_text = bot.generate_reply(text)
+            try:
+                bot.send_message(
+                    receive_id=sender_id,
+                    content=reply_text,
+                    receive_id_type="open_id"
+                )
+            except Exception as e:
+                print(f"发送回复失败: {e}")
+
+    return JSONResponse(content={"status": "ok"})
+
+
+@app.get("/health")
+async def health_check():
+    """健康检查"""
+    try:
+        token = bot.get_tenant_access_token()
+        return {"status": "ok", "token_length": len(token)}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+if __name__ == "__main__":
+    host = os.environ.get("WEBHOOK_HOST", "0.0.0.0")
+    port = int(os.environ.get("WEBHOOK_PORT", 8000))
+    uvicorn.run(app, host=host, port=port)

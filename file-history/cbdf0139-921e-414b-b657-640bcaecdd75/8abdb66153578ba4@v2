@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # 南朝译技术（CTO）
+  cto:
+    build: .
+    container_name: openclaw-cto
+    restart: unless-stopped
+    ports:
+      - "18701:18700"
+      - "18901:18800"
+    volumes:
+      - ./instances/cto/.openclaw:/root/.openclaw
+      - ./instances/cto/workspace:/root/workspace
+    networks:
+      - openclaw-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 设计师（南朝译AI图片）
+  designer:
+    build: .
+    container_name: openclaw-designer
+    restart: unless-stopped
+    ports:
+      - "18702:18700"
+      - "18902:18800"
+    volumes:
+      - ./instances/designer/.openclaw:/root/.openclaw
+      - ./instances/designer/workspace:/root/workspace
+    networks:
+      - openclaw-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 小红书运营
+  xhs:
+    build: .
+    container_name: openclaw-xhs
+    restart: unless-stopped
+    ports:
+      - "18703:18700"
+      - "18903:18800"
+    volumes:
+      - ./instances/xhs/.openclaw:/root/.openclaw
+      - ./instances/xhs/workspace:/root/workspace
+    networks:
+      - openclaw-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 南南（业务部）
+  healer:
+    build: .
+    container_name: openclaw-healer
+    restart: unless-stopped
+    ports:
+      - "18704:18700"
+      - "18904:18800"
+    volumes:
+      - ./instances/healer/.openclaw:/root/.openclaw
+      - ./instances/healer/workspace:/root/workspace
+    networks:
+      - openclaw-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  openclaw-network:
+    driver: bridge

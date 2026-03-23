@@ -1,0 +1,351 @@
+26-[Omitted long context line]
+27-[Omitted long context line]
+28-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-16T23:34:43.372Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+29:[Omitted long matching line]
+30-[Omitted long context line]
+31-[Omitted long context line]
+32-[Omitted long context line]
+33:[Omitted long matching line]
+34-[Omitted long context line]
+35-[Omitted long context line]
+36-[Omitted long context line]
+--
+41-[Omitted long context line]
+42-[Omitted long context line]
+43-[Omitted long context line]
+44:[Omitted long matching line]
+45-[Omitted long context line]
+46-[Omitted long context line]
+47-[Omitted long context line]
+--
+53-[Omitted long context line]
+54-[Omitted long context line]
+55-[Omitted long context line]
+56:[Omitted long matching line]
+57-[Omitted long context line]
+58:{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-16T23:40:02.223Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"cli_a9322da6f5b8dbc6   C8yCzhYTnETgGxv9RvlYUcVpdzKKw71b  数据官"}
+59:{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-16T23:40:11.449Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"cli_a9322e3b03381bd2  CQoU4w7KEISUdAMqJl4kwbfQjCGmIIRd   视频专员"}
+60-[Omitted long context line]
+61-[Omitted long context line]
+62:{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-16T23:40:18.670Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"cli_a9322e738a389bc3    LMjFo6epr1oEOatl7Es8Eh1uHV4Asq4V      投手"}
+63-[Omitted long context line]
+64-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-16T23:40:26.800Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+65-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-16T23:40:26.800Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+66-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-16T23:40:26.800Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+67-[Omitted long context line]
+68:{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-16T23:40:38.178Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"cli_a9322fa4b8f8dbce     OPcDkY30OAmNMWGprj61JgknuVttKniM  运营官 多加了一个 一起是6个"}
+69-[Omitted long context line]
+70-{"type":"queue-operation","operation":"dequeue","timestamp":"2026-03-16T23:40:57.626Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+71:[Omitted long matching line]
+72-{"parentUuid":"14dc4eb1-fcf4-4c59-a4b7-54db3ad2c4e9","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":374954,"timestamp":"2026-03-16T23:40:57.595Z","uuid":"516844c8-4c87-418e-a98c-1f4f3f64a0c8","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+73-{"type":"file-history-snapshot","messageId":"12dced0b-90b5-475d-b53e-f439eec6dc4c","snapshot":{"messageId":"12dced0b-90b5-475d-b53e-f439eec6dc4c","trackedFileBackups":{},"timestamp":"2026-03-16T23:40:57.666Z"},"isSnapshotUpdate":false}
+74:[Omitted long matching line]
+75:[Omitted long matching line]
+76:[Omitted long matching line]
+77-{"parentUuid":"c8d30f0f-0e06-4326-b113-c2af22bc56a6","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":34634,"timestamp":"2026-03-16T23:41:32.301Z","uuid":"4eb510d0-736e-4ab3-b4ff-bfefe3e2f851","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+78-{"type":"file-history-snapshot","messageId":"84db758b-be0a-4aa3-b7f6-5eb2c74b0444","snapshot":{"messageId":"84db758b-be0a-4aa3-b7f6-5eb2c74b0444","trackedFileBackups":{},"timestamp":"2026-03-16T23:44:09.846Z"},"isSnapshotUpdate":false}
+79:[Omitted long matching line]
+80:[Omitted long matching line]
+81:[Omitted long matching line]
+82-{"type":"file-history-snapshot","messageId":"77cce049-6378-4fc8-a00e-314589732028","snapshot":{"messageId":"77cce049-6378-4fc8-a00e-314589732028","trackedFileBackups":{},"timestamp":"2026-03-16T23:44:38.409Z"},"isSnapshotUpdate":false}
+83-{"parentUuid":"b216f91c-de99-402d-9594-cd7a01c83e73","isSidechain":false,"promptId":"974847a2-6e7e-448c-a4f5-91a19bb7c9b9","type":"user","message":{"role":"user","content":"是5个"},"uuid":"77cce049-6378-4fc8-a00e-314589732028","timestamp":"2026-03-16T23:44:38.409Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+84:[Omitted long matching line]
+85:[Omitted long matching line]
+86-{"type":"file-history-snapshot","messageId":"21fdd1c4-2f48-461c-9240-800b400d6cc1","snapshot":{"messageId":"21fdd1c4-2f48-461c-9240-800b400d6cc1","trackedFileBackups":{},"timestamp":"2026-03-16T23:44:55.790Z"},"isSnapshotUpdate":false}
+87:[Omitted long matching line]
+88:[Omitted long matching line]
+89:[Omitted long matching line]
+90:[Omitted long matching line]
+91:[Omitted long matching line]
+92-[Omitted long context line]
+93-[Omitted long context line]
+94:[Omitted long matching line]
+95-[Omitted long context line]
+96-[Omitted long context line]
+97-[Omitted long context line]
+98:[Omitted long matching line]
+99-[Omitted long context line]
+100-[Omitted long context line]
+101:[Omitted long matching line]
+102:[Omitted long matching line]
+103-[Omitted long context line]
+104:[Omitted long matching line]
+105-[Omitted long context line]
+106:[Omitted long matching line]
+107:[Omitted long matching line]
+108:[Omitted long matching line]
+109-[Omitted long context line]
+110-[Omitted long context line]
+111-[Omitted long context line]
+112:[Omitted long matching line]
+113-[Omitted long context line]
+114-[Omitted long context line]
+115-[Omitted long context line]
+116:[Omitted long matching line]
+117-[Omitted long context line]
+118-[Omitted long context line]
+119-[Omitted long context line]
+--
+125-[Omitted long context line]
+126-[Omitted long context line]
+127-[Omitted long context line]
+128:[Omitted long matching line]
+129-[Omitted long context line]
+130-[Omitted long context line]
+131-[Omitted long context line]
+--
+141-[Omitted long context line]
+142-[Omitted long context line]
+143-[Omitted long context line]
+144:[Omitted long matching line]
+145-[Omitted long context line]
+146-[Omitted long context line]
+147-[Omitted long context line]
+148:[Omitted long matching line]
+149:[Omitted long matching line]
+150:[Omitted long matching line]
+151-[Omitted long context line]
+152:[Omitted long matching line]
+153-[Omitted long context line]
+154-[Omitted long context line]
+155-[Omitted long context line]
+156-[Omitted long context line]
+157-[Omitted long context line]
+158:[Omitted long matching line]
+159-{"parentUuid":"c8ee0e78-cb08-4b05-8e34-d1889e1ebdff","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":308613,"timestamp":"2026-03-16T23:54:18.195Z","uuid":"7b80acc9-8973-44a2-98ec-dcb38a9cc46d","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+160-{"type":"file-history-snapshot","messageId":"b831c141-acd7-40ec-b11b-a00840ae59b9","snapshot":{"messageId":"b831c141-acd7-40ec-b11b-a00840ae59b9","trackedFileBackups":{},"timestamp":"2026-03-16T23:55:01.704Z"},"isSnapshotUpdate":false}
+161:{"parentUuid":"7b80acc9-8973-44a2-98ec-dcb38a9cc46d","isSidechain":false,"promptId":"3d5ae22f-20ee-4e8a-b801-be54a8c1716f","type":"user","message":{"role":"user","content":"openclaw pairing approve feishu VJAF29PU总控"},"uuid":"b831c141-acd7-40ec-b11b-a00840ae59b9","timestamp":"2026-03-16T23:55:01.704Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+162:[Omitted long matching line]
+163-[Omitted long context line]
+164:[Omitted long matching line]
+165:[Omitted long matching line]
+166-[Omitted long context line]
+167-[Omitted long context line]
+168-[Omitted long context line]
+169:[Omitted long matching line]
+170-[Omitted long context line]
+171-[Omitted long context line]
+172-[Omitted long context line]
+--
+175-[Omitted long context line]
+176-{"parentUuid":"d44ab992-56d1-4981-9605-b615124d2806","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":69991,"timestamp":"2026-03-16T23:56:11.711Z","uuid":"b34194e1-d8bf-4482-bb5f-0a40523dff9b","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+177-{"type":"file-history-snapshot","messageId":"1268dd38-9c30-4f63-81b3-ff07a0626856","snapshot":{"messageId":"1268dd38-9c30-4f63-81b3-ff07a0626856","trackedFileBackups":{},"timestamp":"2026-03-16T23:56:39.714Z"},"isSnapshotUpdate":false}
+178:{"parentUuid":"b34194e1-d8bf-4482-bb5f-0a40523dff9b","isSidechain":false,"promptId":"766e6000-6daf-4476-8023-e9e037c0fa07","type":"user","message":{"role":"user","content":"openclaw pairing approve feishu 27EQA64S 视频专员"},"uuid":"1268dd38-9c30-4f63-81b3-ff07a0626856","timestamp":"2026-03-16T23:56:39.714Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+179:[Omitted long matching line]
+180:[Omitted long matching line]
+181:[Omitted long matching line]
+182:[Omitted long matching line]
+183-[Omitted long context line]
+184:{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-16T23:57:17.482Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"openclaw pairing approve feishu BQWQKELV数据官"}
+185-{"type":"queue-operation","operation":"dequeue","timestamp":"2026-03-16T23:57:17.866Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+186:[Omitted long matching line]
+187-{"parentUuid":"f3278ab5-9268-4cbf-b8c1-a458d053a229","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":38090,"timestamp":"2026-03-16T23:57:17.823Z","uuid":"c2a0dfb2-ec60-4862-87d3-27359782d693","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+188-{"type":"file-history-snapshot","messageId":"7af466c0-af96-4370-bd21-bac0e522d57b","snapshot":{"messageId":"7af466c0-af96-4370-bd21-bac0e522d57b","trackedFileBackups":{},"timestamp":"2026-03-16T23:57:17.934Z"},"isSnapshotUpdate":false}
+189:{"parentUuid":"c2a0dfb2-ec60-4862-87d3-27359782d693","isSidechain":false,"promptId":"fd25bbcb-b989-4ef3-9af2-c36a78292852","type":"user","message":{"role":"user","content":"openclaw pairing approve feishu BQWQKELV数据官"},"uuid":"7af466c0-af96-4370-bd21-bac0e522d57b","timestamp":"2026-03-16T23:57:17.934Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+190:[Omitted long matching line]
+191:[Omitted long matching line]
+192:[Omitted long matching line]
+193:[Omitted long matching line]
+194:{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-16T23:57:43.098Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"openclaw pairing approve feishu PVPZ9RMK 投手"}
+195-[Omitted long context line]
+196-{"type":"queue-operation","operation":"dequeue","timestamp":"2026-03-16T23:57:46.224Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+197:[Omitted long matching line]
+198-{"type":"file-history-snapshot","messageId":"a40bd7ad-e584-4b00-8f49-67e4ff0dc164","snapshot":{"messageId":"a40bd7ad-e584-4b00-8f49-67e4ff0dc164","trackedFileBackups":{},"timestamp":"2026-03-16T23:57:46.289Z"},"isSnapshotUpdate":false}
+199:{"parentUuid":"ea690ed6-936a-4f60-b780-3cc25582a6db","isSidechain":false,"promptId":"7afdeb70-a15c-479b-862c-659676003317","type":"user","message":{"role":"user","content":"openclaw pairing approve feishu PVPZ9RMK 投手"},"uuid":"a40bd7ad-e584-4b00-8f49-67e4ff0dc164","timestamp":"2026-03-16T23:57:46.289Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+200:[Omitted long matching line]
+201:[Omitted long matching line]
+202:[Omitted long matching line]
+203:[Omitted long matching line]
+204:[Omitted long matching line]
+205:[Omitted long matching line]
+206-{"type":"file-history-snapshot","messageId":"b89231c6-d985-4147-8f36-086cda32138f","snapshot":{"messageId":"b89231c6-d985-4147-8f36-086cda32138f","trackedFileBackups":{},"timestamp":"2026-03-16T23:58:10.439Z"},"isSnapshotUpdate":false}
+207:{"parentUuid":"7efbb55e-7690-46ae-afc1-022b8d24e557","isSidechain":false,"promptId":"e7f258bb-7e80-49db-aca1-2d707f120952","type":"user","message":{"role":"user","content":"openclaw pairing approve feishu GZLNW5B9运营官"},"uuid":"b89231c6-d985-4147-8f36-086cda32138f","timestamp":"2026-03-16T23:58:10.439Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+208:[Omitted long matching line]
+209:[Omitted long matching line]
+210:[Omitted long matching line]
+211:[Omitted long matching line]
+212:[Omitted long matching line]
+213:[Omitted long matching line]
+214-{"parentUuid":"c690afeb-aaba-4c3c-981e-063e73cea15a","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":40227,"timestamp":"2026-03-16T23:58:50.677Z","uuid":"700439a0-f175-437f-9593-8faa13695044","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+215-{"type":"file-history-snapshot","messageId":"59049808-798c-4b9f-9daf-162dbe7407fd","snapshot":{"messageId":"59049808-798c-4b9f-9daf-162dbe7407fd","trackedFileBackups":{},"timestamp":"2026-03-16T23:59:00.655Z"},"isSnapshotUpdate":false}
+216-{"parentUuid":"700439a0-f175-437f-9593-8faa13695044","isSidechain":false,"promptId":"b77374d8-f0e3-4ad0-9b43-39213785dc30","type":"user","message":{"role":"user","content":"横型好像不对"},"uuid":"59049808-798c-4b9f-9daf-162dbe7407fd","timestamp":"2026-03-16T23:59:00.655Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+--
+221-[Omitted long context line]
+222-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-16T23:59:22.184Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+223-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-16T23:59:22.184Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+224:[Omitted long matching line]
+225-[Omitted long context line]
+226-[Omitted long context line]
+227-[Omitted long context line]
+--
+252-{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-17T00:02:28.116Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"他有两个，你看一下那个对的"}
+253-[Omitted long context line]
+254-[Omitted long context line]
+255:[Omitted long matching line]
+256-[Omitted long context line]
+257-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-17T00:03:57.530Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+258-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-17T00:03:57.530Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+--
+268-[Omitted long context line]
+269-[Omitted long context line]
+270-[Omitted long context line]
+271:[Omitted long matching line]
+272-[Omitted long context line]
+273-[Omitted long context line]
+274-[Omitted long context line]
+275:[Omitted long matching line]
+276-[Omitted long context line]
+277-[Omitted long context line]
+278-[Omitted long context line]
+--
+282-[Omitted long context line]
+283-[Omitted long context line]
+284-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-17T00:08:23.837Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+285:[Omitted long matching line]
+286-[Omitted long context line]
+287:[Omitted long matching line]
+288-[Omitted long context line]
+289-[Omitted long context line]
+290-[Omitted long context line]
+--
+337-[Omitted long context line]
+338-[Omitted long context line]
+339-[Omitted long context line]
+340:[Omitted long matching line]
+341-[Omitted long context line]
+342-[Omitted long context line]
+343-[Omitted long context line]
+344:[Omitted long matching line]
+345-[Omitted long context line]
+346-[Omitted long context line]
+347-[Omitted long context line]
+--
+349-[Omitted long context line]
+350-[Omitted long context line]
+351-[Omitted long context line]
+352:[Omitted long matching line]
+353-[Omitted long context line]
+354-[Omitted long context line]
+355-[Omitted long context line]
+356:[Omitted long matching line]
+357-[Omitted long context line]
+358-[Omitted long context line]
+359-[Omitted long context line]
+360:[Omitted long matching line]
+361-[Omitted long context line]
+362-[Omitted long context line]
+363-[Omitted long context line]
+--
+367-{"parentUuid":"929acc23-a183-4eda-9f35-3f527f1137a5","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":362713,"timestamp":"2026-03-17T00:22:08.682Z","uuid":"8be59b8c-5328-42cd-9667-a8cb1867f5e1","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+368-{"type":"file-history-snapshot","messageId":"6350440e-77a7-4c4c-ad42-b0402fd96e8e","snapshot":{"messageId":"6350440e-77a7-4c4c-ad42-b0402fd96e8e","trackedFileBackups":{},"timestamp":"2026-03-17T00:22:22.546Z"},"isSnapshotUpdate":false}
+369-{"parentUuid":"8be59b8c-5328-42cd-9667-a8cb1867f5e1","isSidechain":false,"promptId":"46d99440-3501-4703-bddc-48f5b063a602","type":"user","message":{"role":"user","content":"要教他们怎么用"},"uuid":"6350440e-77a7-4c4c-ad42-b0402fd96e8e","timestamp":"2026-03-17T00:22:22.546Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+370:[Omitted long matching line]
+371-[Omitted long context line]
+372-[Omitted long context line]
+373-[Omitted long context line]
+--
+385-[Omitted long context line]
+386-[Omitted long context line]
+387-[Omitted long context line]
+388:[Omitted long matching line]
+389-[Omitted long context line]
+390-[Omitted long context line]
+391-[Omitted long context line]
+392-[Omitted long context line]
+393:[Omitted long matching line]
+394-[Omitted long context line]
+395-[Omitted long context line]
+396:[Omitted long matching line]
+397-[Omitted long context line]
+398-[Omitted long context line]
+399-[Omitted long context line]
+400:[Omitted long matching line]
+401-[Omitted long context line]
+402-[Omitted long context line]
+403-[Omitted long context line]
+--
+405-[Omitted long context line]
+406-[Omitted long context line]
+407-[Omitted long context line]
+408:[Omitted long matching line]
+409-[Omitted long context line]
+410:[Omitted long matching line]
+411-{"parentUuid":"5f84b042-1e59-41d0-bb0b-447c4e243189","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":261768,"timestamp":"2026-03-17T00:29:24.567Z","uuid":"25fe8236-650c-422f-bfa1-ee33f6f4a963","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+412-{"type":"file-history-snapshot","messageId":"a0c7f5e6-cd24-4a22-b4b7-992f46433105","snapshot":{"messageId":"a0c7f5e6-cd24-4a22-b4b7-992f46433105","trackedFileBackups":{},"timestamp":"2026-03-17T00:29:52.235Z"},"isSnapshotUpdate":false}
+413-{"parentUuid":"25fe8236-650c-422f-bfa1-ee33f6f4a963","isSidechain":false,"promptId":"3b3fcc79-15f1-42ad-8c4e-f7c7ffb9c0f5","type":"user","message":{"role":"user","content":"我不用教他吗，怎么用用吗？"},"uuid":"a0c7f5e6-cd24-4a22-b4b7-992f46433105","timestamp":"2026-03-17T00:29:52.234Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+414-[Omitted long context line]
+415-[Omitted long context line]
+416:[Omitted long matching line]
+417-[Omitted long context line]
+418-[Omitted long context line]
+419:[Omitted long matching line]
+420-{"parentUuid":"a929dea2-e57f-4bbd-9ba3-ecfc177f2851","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":49201,"timestamp":"2026-03-17T00:30:43.895Z","uuid":"1ef7f734-c715-4332-aeb2-b0cccd48c9bf","isMeta":false,"userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+421-{"type":"file-history-snapshot","messageId":"0db56904-6d83-422b-91f2-496084eead1e","snapshot":{"messageId":"0db56904-6d83-422b-91f2-496084eead1e","trackedFileBackups":{},"timestamp":"2026-03-17T00:33:44.763Z"},"isSnapshotUpdate":false}
+422-{"parentUuid":"1ef7f734-c715-4332-aeb2-b0cccd48c9bf","isSidechain":false,"promptId":"92df9e51-2e42-4ef7-99c8-4dd50d2b6e22","type":"user","message":{"role":"user","content":"好的"},"uuid":"0db56904-6d83-422b-91f2-496084eead1e","timestamp":"2026-03-17T00:33:44.763Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+423-{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-17T00:33:49.375Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"我看一下他们会用"}
+424-[Omitted long context line]
+425-{"type":"queue-operation","operation":"dequeue","timestamp":"2026-03-17T00:34:04.934Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+426:[Omitted long matching line]
+427-{"type":"file-history-snapshot","messageId":"fb00a042-017b-4db7-8b70-73214214f80f","snapshot":{"messageId":"fb00a042-017b-4db7-8b70-73214214f80f","trackedFileBackups":{},"timestamp":"2026-03-17T00:34:05.037Z"},"isSnapshotUpdate":false}
+428-{"parentUuid":"f2923798-b5f4-4c2c-9e61-c43659ff4e98","isSidechain":false,"promptId":"8431d4df-93ce-4491-a38b-25e05c7ca364","type":"user","message":{"role":"user","content":"我看一下他们会用"},"uuid":"fb00a042-017b-4db7-8b70-73214214f80f","timestamp":"2026-03-17T00:34:05.037Z","permissionMode":"default","userType":"external","cwd":"/root","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","version":"2.1.76","gitBranch":"HEAD","slug":"tingly-rolling-lemon"}
+429-[Omitted long context line]
+--
+433-[Omitted long context line]
+434-[Omitted long context line]
+435-{"type":"file-history-snapshot","messageId":"31953253-3a4f-4907-a3a2-f38a63623e6e","snapshot":{"messageId":"31953253-3a4f-4907-a3a2-f38a63623e6e","trackedFileBackups":{},"timestamp":"2026-03-17T00:38:40.538Z"},"isSnapshotUpdate":false}
+436:[Omitted long matching line]
+437:[Omitted long matching line]
+438-[Omitted long context line]
+439-[Omitted long context line]
+440-[Omitted long context line]
+--
+443-[Omitted long context line]
+444-[Omitted long context line]
+445-[Omitted long context line]
+446:[Omitted long matching line]
+447-[Omitted long context line]
+448-{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-17T00:39:56.285Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"要装在容器上哦，不然一个挂了，会部都挂了"}
+449-[Omitted long context line]
+450-[Omitted long context line]
+451:[Omitted long matching line]
+452-{"type":"queue-operation","operation":"remove","timestamp":"2026-03-17T00:40:38.116Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+453:[Omitted long matching line]
+454-[Omitted long context line]
+455-[Omitted long context line]
+456-[Omitted long context line]
+--
+477-[Omitted long context line]
+478-[Omitted long context line]
+479-[Omitted long context line]
+480:[Omitted long matching line]
+481-[Omitted long context line]
+482-[Omitted long context line]
+483-[Omitted long context line]
+484:[Omitted long matching line]
+485:[Omitted long matching line]
+486-[Omitted long context line]
+487-[Omitted long context line]
+488-[Omitted long context line]
+--
+501-[Omitted long context line]
+502-[Omitted long context line]
+503-[Omitted long context line]
+504:{"type":"queue-operation","operation":"enqueue","timestamp":"2026-03-17T00:58:14.495Z","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72","content":"总控 这个在宿主机  其他的在容器  数据官  视频专员 投手 运营官是这样哦"}
+505-[Omitted long context line]
+506-[Omitted long context line]
+507-[Omitted long context line]
+--
+513-[Omitted long context line]
+514-{"type":"last-prompt","lastPrompt":"方案A","sessionId":"78c7b060-3f9c-455e-a56b-b1bf4ff1ef72"}
+515-[Omitted long context line]
+516:[Omitted long matching line]
+517:[Omitted long matching line]
+518:[Omitted long matching line]
+519-[Omitted long context line]
+520-[Omitted long context line]
+521-[Omitted long context line]
+--
+525-[Omitted long context line]
+526-[Omitted long context line]
+527-[Omitted long context line]
+528:[Omitted long matching line]

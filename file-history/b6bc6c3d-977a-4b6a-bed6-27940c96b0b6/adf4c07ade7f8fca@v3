@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "feishu": {
+      "type": "stdio",
+      "command": "/root/feishu-mcp-server/venv/bin/python",
+      "args": ["/root/feishu-mcp-server/server.py"],
+      "env": {
+        "FEISHU_APP_ID": "cli_a932915855385bd2",
+        "FEISHU_APP_SECRET": "VFtLG3Km7bltqqoyE1xJOBqUx6OZdsXx"
+      }
+    }
+  }
+}

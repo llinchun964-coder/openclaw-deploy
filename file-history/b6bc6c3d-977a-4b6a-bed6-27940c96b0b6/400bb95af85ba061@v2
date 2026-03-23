@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""
+飞书 MCP 服务器
+提供飞书 API 集成功能
+"""
+
+import os
+import json
+import requests
+from typing import Optional, Dict, Any
+from mcp.server.fastmcp import FastMCP
+
+
+# 创建 MCP 服务器实例
+mcp = FastMCP("feishu-server")
+
+
+class FeishuClient:
+    """飞书 API 客户端"""
+
+    def __init__(self, app_id: str, app_secret: str):
+        self.app_id = app_id
+        self.app_secret = app_secret
+        self._tenant_access_token: Optional[str] = None
+        self.base_url = "https://open.feishu.cn/open-apis"
+
+    def get_tenant_access_token(self, force_refresh: bool = False) -> str:
+        """获取租户访问令牌"""
+        if not force_refresh and self._tenant_access_token:
+            return self._tenant_access_token
+
+        url = f"{self.base_url}/auth/v3/tenant_access_token/internal"
+        resp = requests.post(url, json={
+            "app_id": self.app_id,
+            "app_secret": self.app_secret
+        })
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("code") != 0:
+            raise Exception(f"获取访问令牌失败: {data.get('msg', '未知错误')}")
+
+        self._tenant_access_token = data["tenant_access_token"]
+        return self._tenant_access_token
+
+    def _request(self, method: str, path: str, **kwargs) -> Dict[str, Any]:
+        """发送请求到飞书 API"""
+        url = f"{self.base_url}{path}"
+        headers = kwargs.pop("headers", {})
+        headers["Authorization"] = f"Bearer {self.get_tenant_access_token()}"
+
+        resp = requests.request(method, url, headers=headers, **kwargs)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("code") != 0:
+            # 如果是 token 过期，刷新后重试
+            if data.get("code") == 99991663:  # token 过期
+                self.get_tenant_access_token(force_refresh=True)
+                return self._request(method, path, **kwargs)
+            raise Exception(f"API 请求失败: {data.get('msg', '未知错误')} (code: {data.get('code')})")
+
+        return data
+
+    def send_message(self, receive_id: str, content: str, msg_type: str = "text", receive_id_type: str = "chat_id") -> Dict[str, Any]:
+        """
+        发送消息
+
+        Args:
+            receive_id: 接收者 ID（群聊 ID 或用户 ID）
+            content: 消息内容
+            msg_type: 消息类型 (text, image, file, card 等)
+            receive_id_type: 接收者 ID 类型 (open_id, user_id, union_id, email, chat_id)
+        """
+        if msg_type == "text":
+            msg_content = json.dumps({"text": content}, ensure_ascii=False)
+        else:
+            msg_content = content
+
+        return self._request(
+            "POST",
+            "/im/v1/messages",
+            params={"receive_id_type": receive_id_type},
+            json={
+                "receive_id": receive_id,
+                "msg_type": msg_type,
+                "content": msg_content
+            }
+        )
+
+    def list_chats(self, page_size: int = 50, page_token: Optional[str] = None) -> Dict[str, Any]:
+        """获取群聊列表"""
+        params = {"page_size": page_size}
+        if page_token:
+            params["page_token"] = page_token
+        return self._request("GET", "/im/v1/chats", params=params)
+
+    def get_chat_info(self, chat_id: str) -> Dict[str, Any]:
+        """获取群聊信息"""
+        return self._request("GET", f"/im/v1/chats/{chat_id}")
+
+    def search_user_by_email(self, email: str) -> Dict[str, Any]:
+        """通过邮箱搜索用户"""
+        return self._request(
+            "POST",
+            "/contact/v3/users/batch_get_id",
+            json={"emails": [email]}
+        )
+
+
+# 从环境变量获取配置
+APP_ID = os.environ.get("FEISHU_APP_ID", "")
+APP_SECRET = os.environ.get("FEISHU_APP_SECRET", "")
+
+feishu_client = FeishuClient(APP_ID, APP_SECRET)
+
+
+@mcp.tool()
+def send_feishu_message(
+    receive_id: str,
+    content: str,
+    msg_type: str = "text",
+    receive_id_type: str = "chat_id"
+) -> str:
+    """
+    发送飞书消息
+
+    Args:
+        receive_id: 接收者 ID（群聊 ID 或用户 ID）
+        content: 消息内容
+        msg_type: 消息类型，默认为 text (可选: text, image, file, card)
+        receive_id_type: 接收者 ID 类型，默认为 chat_id (可选: open_id, user_id, union_id, email, chat_id)
+    """
+    try:
+        result = feishu_client.send_message(receive_id, content, msg_type, receive_id_type)
+        return f"消息发送成功!\n消息 ID: {result.get('data', {}).get('message_id', '未知')}"
+    except Exception as e:
+        return f"消息发送失败: {str(e)}"
+
+
+@mcp.tool()
+def list_feishu_chats(page_size: int = 50) -> str:
+    """
+    获取飞书群聊列表
+
+    Args:
+        page_size: 每页数量，默认 50
+    """
+    try:
+        result = feishu_client.list_chats(page_size)
+        chats = result.get("data", {}).get("items", [])
+
+        if not chats:
+            return "没有找到群聊"
+
+        output = "群聊列表:\n"
+        for chat in chats:
+            output += f"- 名称: {chat.get('name', '未知')}\n"
+            output += f"  ID: {chat.get('chat_id', '未知')}\n"
+            output += f"  描述: {chat.get('description', '无')}\n\n"
+
+        return output
+    except Exception as e:
+        return f"获取群聊列表失败: {str(e)}"
+
+
+@mcp.tool()
+def get_feishu_chat_info(chat_id: str) -> str:
+    """
+    获取飞书群聊详细信息
+
+    Args:
+        chat_id: 群聊 ID
+    """
+    try:
+        result = feishu_client.get_chat_info(chat_id)
+        chat = result.get("data", {})
+
+        output = f"群聊名称: {chat.get('name', '未知')}\n"
+        output += f"群聊 ID: {chat.get('chat_id', '未知')}\n"
+        output += f"描述: {chat.get('description', '无')}\n"
+        output += f"成员数: {chat.get('member_count', 0)}\n"
+        output += f"群主 ID: {chat.get('owner_id', '未知')}\n"
+
+        return output
+    except Exception as e:
+        return f"获取群聊信息失败: {str(e)}"
+
+
+@mcp.tool()
+def test_feishu_connection() -> str:
+    """测试飞书连接是否正常"""
+    try:
+        token = feishu_client.get_tenant_access_token()
+        return f"连接成功! 访问令牌已获取 (长度: {len(token)})"
+    except Exception as e:
+        return f"连接失败: {str(e)}"
+
+
+if __name__ == "__main__":
+    mcp.run()

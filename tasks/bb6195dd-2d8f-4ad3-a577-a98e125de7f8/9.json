@@ -1,0 +1,9 @@
+{
+  "id": "9",
+  "subject": "配置服务器118.253.182.150的架构B",
+  "description": "SSH连接到118.253.182.150，检查现有配置，配置架构B的4个独立OpenClaw实例",
+  "activeForm": "配置服务器118.253.182.150",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

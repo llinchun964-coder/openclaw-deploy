@@ -1,0 +1,54 @@
+module.exports = {
+  apps: [
+    {
+      name: "SEO-Master",
+      script: "/root/.openclaw/master/start.sh",
+      max_memory_restart: "1G",
+      kill_timeout: 5000,
+      watch: false,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: "10s"
+    },
+    {
+      name: "CTO-Worker",
+      script: "/root/.openclaw/tech/start.sh",
+      max_memory_restart: "1G",
+      kill_timeout: 5000,
+      watch: false,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: "10s"
+    },
+    {
+      name: "Naming-Worker",
+      script: "/root/.openclaw/naming/start.sh",
+      max_memory_restart: "1G",
+      kill_timeout: 5000,
+      watch: false,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: "10s"
+    },
+    {
+      name: "Ops-Worker",
+      script: "/root/.openclaw/ops/start.sh",
+      max_memory_restart: "1G",
+      kill_timeout: 5000,
+      watch: false,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: "10s"
+    },
+    {
+      name: "Design-Worker",
+      script: "/root/.openclaw/design/start.sh",
+      max_memory_restart: "1G",
+      kill_timeout: 5000,
+      watch: false,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: "10s"
+    }
+  ]
+};

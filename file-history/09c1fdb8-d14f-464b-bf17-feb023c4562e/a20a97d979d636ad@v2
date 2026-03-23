@@ -1,0 +1,19 @@
+#!/bin/bash
+
+LOG_FILE="/root/sigterm-monitor.log"
+
+echo "开始监控 SIGTERM 信号..." > "$LOG_FILE"
+
+while true; do
+    DATE=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "--- $DATE ---" >> "$LOG_FILE"
+
+    # 检查 openclaw 进程
+    ps aux | grep -E "openclaw|gateway" | grep -v grep >> "$LOG_FILE" 2>/dev/null || echo "No openclaw processes" >> "$LOG_FILE"
+
+    # 检查最近的系统日志
+    journalctl --since "10 seconds ago" -k >> "$LOG_FILE" 2>/dev/null
+
+    echo "" >> "$LOG_FILE"
+    sleep 2
+done

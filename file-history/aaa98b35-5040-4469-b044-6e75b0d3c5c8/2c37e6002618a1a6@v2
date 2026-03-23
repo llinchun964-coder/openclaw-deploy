@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+"""
+修复阿里云百炼 API 图片大小问题的工具
+错误: Range of input length should be [1, 196601]
+"""
+
+import argparse
+import base64
+import io
+import os
+import sys
+from pathlib import Path
+from PIL import Image
+
+# 阿里云百炼 API 限制
+MAX_SIZE_BYTES = 196601
+MIN_SIZE_BYTES = 1
+
+# 推荐的最大尺寸（宽或高）
+MAX_DIMENSION = 2048
+
+
+def optimize_image_for_aliyun(
+    image_path: Path,
+    output_path: Path = None,
+    max_dimension: int = MAX_DIMENSION
+) -> dict:
+    """
+    优化图片以符合阿里云百炼 API 的要求
+
+    策略:
+    1. 如果图片超过最大尺寸，先缩小尺寸
+    2. 转换为 JPEG 格式（比 PNG 小）
+    3. 调整质量以达到目标大小
+    4. 确保不小于最小大小
+    """
+    img = Image.open(image_path)
+    original_format = img.format
+    original_size = image_path.stat().st_size
+    original_mode = img.mode
+
+    print(f"原始图片: {image_path}")
+    print(f"  格式: {original_format}")
+    print(f"  模式: {original_mode}")
+    print(f"  尺寸: {img.size}")
+    print(f"  大小: {original_size:,} 字节")
+
+    # 步骤 1: 转换颜色模式
+    if img.mode in ('RGBA', 'P'):
+        # 转换为 RGB 以减小大小
+        background = Image.new('RGB', img.size, (255, 255, 255))
+        if img.mode == 'RGBA':
+            background.paste(img, mask=img.split()[3])
+        else:
+            background.paste(img)
+        img = background
+    elif img.mode != 'RGB':
+        img = img.convert('RGB')
+
+    # 步骤 2: 如果尺寸太大，先缩小
+    width, height = img.size
+    if width > max_dimension or height > max_dimension:
+        ratio = min(max_dimension / width, max_dimension / height)
+        new_width = int(width * ratio)
+        new_height = int(height * ratio)
+        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        print(f"  调整尺寸后: {img.size}")
+
+    # 步骤 3: 调整质量以达到目标大小
+    # 二分法查找合适的质量
+    low_quality = 10
+    high_quality = 95
+    best_quality = 85
+    best_data = None
+
+    # 先尝试几个常见的质量值
+    for quality in [85, 70, 55, 40, 25]:
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=quality, optimize=True)
+        data = buf.getvalue()
+        size = len(data)
+
+        if MIN_SIZE_BYTES <= size <= MAX_SIZE_BYTES:
+            best_quality = quality
+            best_data = data
+            break
+        elif size < MIN_SIZE_BYTES:
+            # 太小了，增加质量
+            low_quality = quality
+        else:
+            # 太大了，继续降低质量
+            high_quality = quality
+
+    # 如果上面没找到，用更精确的方法
+    if best_data is None:
+        for quality in range(high_quality, low_quality - 1, -5):
+            buf = io.BytesIO()
+            img.save(buf, format='JPEG', quality=quality, optimize=True)
+            data = buf.getvalue()
+            size = len(data)
+
+            if MIN_SIZE_BYTES <= size <= MAX_SIZE_BYTES:
+                best_quality = quality
+                best_data = data
+                break
+
+    # 如果还是太大，继续缩小尺寸
+    if best_data is None:
+        current_width, current_height = img.size
+        for scale in [0.8, 0.6, 0.4, 0.2]:
+            new_width = int(current_width * scale)
+            new_height = int(current_height * scale)
+            scaled_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            for quality in [85, 60, 35]:
+                buf = io.BytesIO()
+                scaled_img.save(buf, format='JPEG', quality=quality, optimize=True)
+                data = buf.getvalue()
+                size = len(data)
+
+                if MIN_SIZE_BYTES <= size <= MAX_SIZE_BYTES:
+                    best_quality = quality
+                    best_data = data
+                    img = scaled_img
+                    print(f"  进一步缩小尺寸后: {img.size}")
+                    break
+            if best_data is not None:
+                break
+
+    if best_data is None:
+        return {
+            "success": False,
+            "error": "无法将图片优化到目标大小范围内"
+        }
+
+    # 确定输出路径
+    if output_path is None:
+        output_path = image_path.parent / f"{image_path.stem}_aliyun.jpg"
+
+    # 保存优化后的图片
+    output_path.write_bytes(best_data)
+
+    final_size = len(best_data)
+    print(f"\n✓ 优化成功!")
+    print(f"  输出: {output_path}")
+    print(f"  最终大小: {final_size:,} 字节")
+    print(f"  质量: {best_quality}")
+    print(f"  尺寸: {img.size}")
+    print(f"  压缩比: {original_size / final_size:.1f}x")
+
+    return {
+        "success": True,
+        "original_path": str(image_path),
+        "output_path": str(output_path),
+        "original_size": original_size,
+        "final_size": final_size,
+        "quality": best_quality,
+        "size": img.size
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="优化图片以符合阿里云百炼 API 要求 (1-196601 字节)"
+    )
+    parser.add_argument("input", help="输入图片路径")
+    parser.add_argument("-o", "--output", help="输出图片路径 (可选，默认: {input}_aliyun.jpg)")
+    parser.add_argument("--max-dim", type=int, default=MAX_DIMENSION,
+                        help=f"最大尺寸 (宽或高，默认: {MAX_DIMENSION})")
+    parser.add_argument("--check-only", action="store_true",
+                        help="仅检查，不修改")
+
+    args = parser.parse_args()
+
+    input_path = Path(args.input)
+
+    if not input_path.exists():
+        print(f"错误: 文件不存在: {input_path}", file=sys.stderr)
+        return 1
+
+    original_size = input_path.stat().st_size
+
+    print("=" * 60)
+    print("阿里云百炼 API 图片优化工具")
+    print("=" * 60)
+    print(f"允许范围: {MIN_SIZE_BYTES:,} - {MAX_SIZE_BYTES:,} 字节")
+    print()
+
+    if MIN_SIZE_BYTES <= original_size <= MAX_SIZE_BYTES:
+        print("✓ 图片大小已经在允许范围内!")
+        return 0
+
+    print(f"⚠️ 图片大小不符合要求!")
+    print(f"   当前: {original_size:,} 字节")
+
+    if original_size < MIN_SIZE_BYTES:
+        print(f"   问题: 太小 (小于 {MIN_SIZE_BYTES} 字节)")
+    else:
+        print(f"   问题: 太大 (超过 {MAX_SIZE_BYTES:,} 字节)")
+
+    if args.check_only:
+        return 1
+
+    print()
+    print("开始优化...")
+    print()
+
+    output_path = Path(args.output) if args.output else None
+    result = optimize_image_for_aliyun(
+        input_path,
+        output_path,
+        args.max_dim
+    )
+
+    if result["success"]:
+        print()
+        print("=" * 60)
+        print("使用提示:")
+        print("=" * 60)
+        print(f"1. 使用优化后的图片: {result['output_path']}")
+        print("2. 或者在你的程序中集成此优化逻辑")
+        print()
+        return 0
+    else:
+        print(f"\n错误: {result['error']}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

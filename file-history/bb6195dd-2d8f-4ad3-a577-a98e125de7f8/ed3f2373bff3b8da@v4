@@ -1,0 +1,180 @@
+{
+  "$schema": "https://openclaw.ai/schema/config.json",
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-16T18:00:00.000Z"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "阿里云百炼": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "sk-sp-e6083128df284ca3b4fdbe6d987d576c",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "reasoning": false,
+            "input": ["text", "image"]
+          },
+          {
+            "id": "text-embedding-v3",
+            "name": "text-embedding-v3",
+            "input": ["text"]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "南朝译技术（CTO）",
+        "workspace": "/root/.openclaw/workspace"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full",
+    "sessions": {
+      "visibility": "all"
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "feishu",
+        "accountId": "cto-bot"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "protocol": "websocket",
+      "ignoreBots": false,
+      "appId": "cli_a926c4742cf8dcb6",
+      "appSecret": "fn4QNCRTZ04IXxBEvFFatgQIoYWCK5RS",
+      "accounts": {
+        "cto-bot": {
+          "enabled": true,
+          "appId": "cli_a926c4742cf8dcb6",
+          "appSecret": "fn4QNCRTZ04IXxBEvFFatgQIoYWCK5RS",
+          "botName": "南朝译技术"
+        },
+        "default": {
+          "groupPolicy": "mention"
+        }
+      },
+      "groupPolicy": "mention"
+    }
+  },
+  "gateway": {
+    "port": 18790,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "http://198.200.39.21:1420",
+        "http://172.17.0.1:1420"
+      ],
+      "allowInsecureAuth": false
+    },
+    "auth": {
+      "mode": "token",
+      "token": "4e62aee4fb7b8c4cdf4ae5fa6191bbf9e77a815426520497",
+      "rateLimit": {
+        "maxAttempts": 10,
+        "windowMs": 60000,
+        "lockoutMs": 300000
+      }
+    }
+  },
+  "plugins": {
+    "allow": ["feishu", "a2a-gateway"],
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "agentCard": {
+            "name": "cto-bot",
+            "description": "CTO Assistant - Technical Lead",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "chat",
+                "description": "Chat bridge"
+              }
+            ]
+          },
+          "server": {
+            "host": "0.0.0.0",
+            "port": 18801
+          },
+          "security": {
+            "inboundAuth": "bearer",
+            "token": "cto-token-20260316"
+          },
+          "routing": {
+            "defaultAgentId": "main"
+          },
+          "peers": [
+            {
+              "name": "coo-bot",
+              "agentCardUrl": "http://172.17.0.1:18800/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "coo-token-20260316"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "installs": {
+      "feishu": {
+        "source": "npm",
+        "spec": "@openclaw/feishu",
+        "installPath": "/root/.openclaw/extensions/feishu",
+        "version": "2026.3.13"
+      },
+      "a2a-gateway": {
+        "source": "path",
+        "sourcePath": "/tmp/openclaw-a2a-gateway",
+        "installPath": "/root/.openclaw/extensions/a2a-gateway",
+        "version": "1.0.1"
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+# TOOLS.md - Local Notes
+
+## A2A Gateway（Agent 间通信）
+
+你有一个 A2A Gateway 插件运行，可以通过它调用其他机器人。
+
+### 对等方列表
+
+| 对等方名称 | 角色 | A2A 地址 |
+|-----------|------|----------|
+| zongkong | 总控 - Master Controller | http://localhost:18800 |
+| shujuguan | 数据官 - Data Officer | http://localhost:18901 |
+| shipinzhuanyuan | 视频专员 - Video Specialist | http://localhost:18902 |
+| toushou | 投手 - Media Buyer | http://localhost:18903 |
+| yunyingguan | 运营官 - Operations Officer | http://localhost:18904 |
+
+### 发送消息给对等方
+
+当用户说"让 xxx 做 xxx"时，直接在飞书里 @ 对应的机器人即可，它们会独立回复。
+
+所有机器人都在同一个飞书群里，可以直接互相 @ 提及。
+
+---
+
+## 为什么 Separate?
+
+Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.

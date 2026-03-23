@@ -1,0 +1,219 @@
+{
+  "$schema": "https://openclaw.ai/schema/config.json",
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-16T18:00:00.000Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-16T12:10:33.295Z",
+    "lastRunVersion": "2026.3.13",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "阿里云百炼": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "sk-sp-e6083128df284ca3b4fdbe6d987d576c",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ]
+          },
+          {
+            "id": "text-embedding-v3",
+            "name": "text-embedding-v3",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "南朝译（COO）",
+        "workspace": "/root/.openclaw/workspace"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full",
+    "sessions": {
+      "visibility": "all"
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "feishu",
+        "accountId": "coo-bot"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "protocol": "websocket",
+      "ignoreBots": false,
+      "appId": "cli_a9269e44a8b9dcef",
+      "appSecret": "M2iO2Z7Oi0qtBdhcdwkebhGIcqY0lIYa",
+      "accounts": {
+        "coo-bot": {
+          "enabled": true,
+          "appId": "cli_a9269e44a8b9dcef",
+          "appSecret": "M2iO2Z7Oi0qtBdhcdwkebhGIcqY0lIYa",
+          "botName": "南朝译"
+        },
+        "default": {
+          "groupPolicy": "mention"
+        }
+      },
+      "groupPolicy": "mention"
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "http://198.200.39.21:1420",
+        "http://172.17.0.1:1420"
+      ],
+      "allowInsecureAuth": false
+    },
+    "auth": {
+      "mode": "token",
+      "token": "4e62aee4fb7b8c4cdf4ae5fa6191bbf9e77a815426520497",
+      "rateLimit": {
+        "maxAttempts": 10,
+        "windowMs": 60000,
+        "lockoutMs": 300000
+      }
+    }
+  },
+  "plugins": {
+    "allow": [
+      "feishu",
+      "a2a-gateway"
+    ],
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "agentCard": {
+            "name": "coo-assistant",
+            "description": "COO Assistant - Main Coordinator",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "chat",
+                "description": "Chat bridge"
+              }
+            ]
+          },
+          "server": {
+            "host": "0.0.0.0",
+            "port": 18800
+          },
+          "security": {
+            "inboundAuth": "bearer",
+            "token": "coo-token-20260316"
+          },
+          "routing": {
+            "defaultAgentId": "main"
+          },
+          "peers": [
+            {
+              "name": "cto-bot",
+              "agentCardUrl": "http://127.0.0.1:18801/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "cto-token-20260316"
+              }
+            },
+            {
+              "name": "designer-bot",
+              "agentCardUrl": "http://127.0.0.1:18802/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "designer-token-20260316"
+              }
+            },
+            {
+              "name": "xhs-bot",
+              "agentCardUrl": "http://127.0.0.1:18803/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "xhs-token-20260316"
+              }
+            },
+            {
+              "name": "healer-bot",
+              "agentCardUrl": "http://127.0.0.1:18804/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "healer-token-20260316"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "installs": {
+      "feishu": {
+        "source": "npm",
+        "spec": "@openclaw/feishu",
+        "installPath": "/root/.openclaw/extensions/feishu",
+        "version": "2026.3.13"
+      },
+      "a2a-gateway": {
+        "source": "path",
+        "sourcePath": "/tmp/openclaw-a2a-gateway",
+        "installPath": "/root/.openclaw/extensions/a2a-gateway",
+        "version": "1.0.1",
+        "installedAt": "2026-03-16T17:54:34.476Z"
+      }
+    }
+  }
+}

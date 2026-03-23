@@ -1,0 +1,23 @@
+#!/bin/bash
+# 启动飞书 Webhook 服务
+
+cd "$(dirname "$0")"
+
+# 激活虚拟环境
+if [ -d "venv" ]; then
+    source venv/bin/activate
+fi
+
+# 安装依赖
+pip install -q -r requirements.txt
+
+# 启动服务
+echo "启动飞书 Webhook 服务..."
+echo "服务地址: http://0.0.0.0:8000"
+echo "Webhook 端点: http://0.0.0.0:8000/webhook/feishu"
+echo "健康检查: http://0.0.0.0:8000/health"
+echo ""
+echo "按 Ctrl+C 停止服务"
+echo ""
+
+python webhook.py

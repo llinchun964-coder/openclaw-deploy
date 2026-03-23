@@ -1,0 +1,166 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "火山引擎": {
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+        "apiKey": "8c22373b-404a-4f89-8ac0-50992681d1f3",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "ark-code-latest",
+            "name": "ark-code-latest",
+            "reasoning": false,
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "火山引擎/ark-code-latest"
+      },
+      "models": {
+        "火山引擎/ark-code-latest": {
+          "alias": "ark-code-latest"
+        }
+      },
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "南朝译（COO）"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "feishu",
+        "accountId": "coo-bot"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "threadSession": true,
+      "replyMode": "auto",
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "groupPolicy": "mention",
+      "dmPolicy": "pairing",
+      "accounts": {
+        "coo-bot": {
+          "appId": "cli_a9269e44a8b9dcef",
+          "appSecret": "M2iO2Z7Oi0qtBdhcdwkebhGIcqY0lIYa",
+          "botName": "南朝译",
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "http://198.200.39.21:1420",
+        "http://172.20.0.1:1420"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "openclaw-token-2026"
+    }
+  },
+  "plugins": {
+    "allow": [
+      "feishu",
+      "a2a-gateway"
+    ],
+    "load": {
+      "paths": [
+        "/root/.npm-global/lib/node_modules/openclaw/extensions/feishu",
+        "/root/.openclaw/extensions/a2a-gateway"
+      ]
+    },
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "server": {
+            "port": 18800,
+            "host": "0.0.0.0"
+          },
+          "routing": {
+            "defaultAgentId": "main"
+          },
+          "agentCard": {
+            "name": "nanchaoyi",
+            "description": "南朝译 - COO",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "Chat",
+                "description": "Chat with 南朝译"
+              }
+            ]
+          },
+          "peers": [
+            {
+              "name": "nanchaoyi-tech",
+              "agentCardUrl": "http://localhost:18901/.well-known/agent-card.json"
+            },
+            {
+              "name": "nanchaoyi-ai-image",
+              "agentCardUrl": "http://localhost:18902/.well-known/agent-card.json"
+            },
+            {
+              "name": "xiaohongshu-yunying",
+              "agentCardUrl": "http://localhost:18903/.well-known/agent-card.json"
+            },
+            {
+              "name": "nannan",
+              "agentCardUrl": "http://localhost:18904/.well-known/agent-card.json"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

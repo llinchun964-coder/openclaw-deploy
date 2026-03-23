@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-16T22:44:44.423Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-16T22:44:44.357Z",
+    "lastRunVersion": "2026.3.13",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "阿里云百炼": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "sk-sp-e6083128df284ca3b4fdbe6d987d576c",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "阿里云百炼/qwen3.5-plus"
+      },
+      "models": {
+        "阿里云百炼/qwen3.5-plus": {
+          "alias": "qwen3.5-plus"
+        }
+      },
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "mimi",
+        "default": true,
+        "name": "米米 - 运营总监",
+        "workspace": "/root/openclaw-instances/mimi/workspace"
+      },
+      {
+        "id": "tuitui",
+        "name": "推推 - 小红书运营",
+        "workspace": "/root/openclaw-instances/tuitui/workspace"
+      },
+      {
+        "id": "xiaoxiao",
+        "name": "小小 - 设计师",
+        "workspace": "/root/openclaw-instances/xiaoxiao/workspace"
+      },
+      {
+        "id": "anan",
+        "name": "安安 - 技术员",
+        "workspace": "/root/openclaw-instances/anan/workspace"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "bindings": [
+    {
+      "agentId": "mimi",
+      "match": {
+        "channel": "feishu",
+        "accountId": "mimi"
+      }
+    },
+    {
+      "agentId": "tuitui",
+      "match": {
+        "channel": "feishu",
+        "accountId": "tuitui"
+      }
+    },
+    {
+      "agentId": "xiaoxiao",
+      "match": {
+        "channel": "feishu",
+        "accountId": "xiaoxiao"
+      }
+    },
+    {
+      "agentId": "anan",
+      "match": {
+        "channel": "feishu",
+        "accountId": "anan"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "threadSession": true,
+      "replyMode": "auto",
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "groupPolicy": "mention",
+      "dmPolicy": "pairing",
+      "accounts": {
+        "mimi": {
+          "appId": "cli_a939ecab96b8dbd9",
+          "appSecret": "M7NLsknWnH74kHWRnqeYeffcaV5taxki",
+          "botName": "米米 - 运营总监",
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        },
+        "tuitui": {
+          "appId": "cli_a939e8111d381bce",
+          "appSecret": "3h760LU7bogy3uWLUlqcVePxoGeNlxtG",
+          "botName": "推推 - 小红书运营",
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        },
+        "xiaoxiao": {
+          "appId": "cli_a939ef8508781bca",
+          "appSecret": "OfDt6pmBF9P4n6rTRO3kPJHTs67ZL2Jj",
+          "botName": "小小 - 设计师",
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        },
+        "anan": {
+          "appId": "cli_a939e8f31a0a5bd2",
+          "appSecret": "cFj3gRo65uBI351JqqCLPgTC635IqPDs",
+          "botName": "安安 - 技术员",
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        },
+        "default": {
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "http://198.200.39.21:1420"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "4e62aee4fb7b8c4cdf4ae5fa6191bbf9e77a815426520497"
+    }
+  },
+  "plugins": {
+    "allow": [
+      "feishu",
+      "a2a-gateway"
+    ],
+    "load": {
+      "paths": [
+        "/root/.npm-global/lib/node_modules/openclaw/extensions/feishu"
+      ]
+    },
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "agentCard": {
+            "name": "team-assistant",
+            "description": "Team Assistant - Multi-Agent Coordinator",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "Chat",
+                "description": "Chat with other agents in the team"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

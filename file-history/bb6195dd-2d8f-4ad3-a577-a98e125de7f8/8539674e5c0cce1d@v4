@@ -1,0 +1,46 @@
+# TOOLS.md - Local Notes
+
+## A2A Gateway（Agent 间通信）
+
+你有一个 A2A Gateway 插件运行，可以通过它调用其他机器人。
+
+### 对等方列表
+
+| 对等方名称 | 角色 | 调用脚本 |
+|-----------|------|---------|
+| cto-bot | 南朝译技术（CTO）- 技术负责人 | `/root/.openclaw/workspace/scripts/call-cto.sh` |
+| designer-bot | 设计师 - 创意设计师 | `/root/.openclaw/workspace/scripts/call-designer.sh` |
+| xhs-bot | 小红书运营官 - 营销负责人 | `/root/.openclaw/workspace/scripts/call-xhs.sh` |
+| healer-bot | 南南（业务部）- 业务负责人 | `/root/.openclaw/workspace/scripts/call-healer.sh` |
+
+### 发送消息给对等方（简单方式）
+
+当用户说"让 cto-bot 做 xxx"、"让设计师做 xxx"时，用 exec 工具执行对应的脚本：
+
+**让 CTO 写代码：**
+```bash
+/root/.openclaw/workspace/scripts/call-cto.sh "帮我写一个 Python 脚本来分析日志文件"
+```
+
+**让设计师做设计：**
+```bash
+/root/.openclaw/workspace/scripts/call-designer.sh "帮我设计一个海报，主题是春季促销"
+```
+
+**让小红书运营写笔记：**
+```bash
+/root/.openclaw/workspace/scripts/call-xhs.sh "帮我写一篇小红书笔记，介绍我们的新产品"
+```
+
+**让南南处理业务：**
+```bash
+/root/.openclaw/workspace/scripts/call-healer.sh "帮我处理一下客户反馈的问题"
+```
+
+脚本会自动处理认证并输出对方的回复文本。你需要把对方的回复整理后反馈给用户。
+
+---
+
+## 为什么 Separate?
+
+Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.

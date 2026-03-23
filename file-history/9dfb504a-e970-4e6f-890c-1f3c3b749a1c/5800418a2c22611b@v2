@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-17T04:25:00.000Z"
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "a2a",
+    "bind": "all",
+    "auth": {
+      "mode": "token",
+      "token": "58a45e590239c0cda4a3c61d15ec82630c513e75d77274d9"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "contacts.add",
+        "calendar.add",
+        "reminders.add",
+        "sms.send"
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+#!/bin/bash
+# 每天凌晨重启 OpenClaw gateway 服务
+
+echo "$(date): 开始重启 OpenClaw gateway..." >> /tmp/openclaw-restart.log
+
+# 重启服务
+systemctl --user restart openclaw-gateway.service
+
+# 等待 10 秒
+sleep 10
+
+# 检查状态
+if systemctl --user is-active --quiet openclaw-gateway.service; then
+    echo "$(date): OpenClaw gateway 重启成功" >> /tmp/openclaw-restart.log
+else
+    echo "$(date): OpenClaw gateway 重启失败" >> /tmp/openclaw-restart.log
+fi

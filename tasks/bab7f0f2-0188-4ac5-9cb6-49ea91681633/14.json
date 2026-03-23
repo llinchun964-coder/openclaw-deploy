@@ -1,0 +1,8 @@
+{
+  "id": "14",
+  "subject": "启动南南和小红书运营实例",
+  "description": "在宿主机上启动 healer (南南) 和 xhs (小红书运营) 实例",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

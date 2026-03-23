@@ -1,0 +1,76 @@
+#!/bin/bash
+
+echo "=== Killing all openclaw ==="
+pkill -f "openclaw gateway" 2>/dev/null || true
+pkill -f "openclaw-gateway" 2>/dev/null || true
+sleep 8
+
+# Cleanup and setup
+rm -rf /root/openclaw-instances
+mkdir -p /root/openclaw-instances/main
+mkdir -p /root/openclaw-instances/cto
+mkdir -p /root/openclaw-instances/designer
+mkdir -p /root/openclaw-instances/xhs
+mkdir -p /root/openclaw-instances/healer
+
+# Copy configs
+echo "=== Copying configs ==="
+cp -a /root/.openclaw /root/openclaw-instances/main/
+cp -a /root/openclaw-docker/instances/cto/.openclaw /root/openclaw-instances/cto/
+cp -a /root/openclaw-docker/instances/designer/.openclaw /root/openclaw-instances/designer/
+cp -a /root/openclaw-docker/instances/xhs/.openclaw /root/openclaw-instances/xhs/
+cp -a /root/openclaw-docker/instances/healer/.openclaw /root/openclaw-instances/healer/
+
+# Copy a2a-gateway
+for instance in main cto designer xhs healer; do
+  mkdir -p /root/openclaw-instances/$instance/.openclaw/extensions
+  cp -a /root/.openclaw/extensions/a2a-gateway /root/openclaw-instances/$instance/.openclaw/extensions/
+done
+
+# Start MAIN
+echo ""
+echo "1/5 - Starting MAIN (南朝译 COO)"
+HOME=/root/openclaw-instances/main nohup openclaw gateway > /var/log/openclaw-main.log 2>&1 &
+sleep 15
+echo "Testing MAIN..."
+curl -s http://localhost:18800/.well-known/agent-card.json > /dev/null && echo "  ✓ MAIN OK" || echo "  ✗ MAIN failed"
+
+# Start CTO
+echo ""
+echo "2/5 - Starting CTO"
+HOME=/root/openclaw-instances/cto nohup openclaw gateway > /var/log/openclaw-cto.log 2>&1 &
+sleep 15
+echo "Testing CTO..."
+curl -s http://localhost:18901/.well-known/agent-card.json > /dev/null && echo "  ✓ CTO OK" || echo "  ✗ CTO failed"
+
+# Start DESIGNER
+echo ""
+echo "3/5 - Starting DESIGNER"
+HOME=/root/openclaw-instances/designer nohup openclaw gateway > /var/log/openclaw-designer.log 2>&1 &
+sleep 15
+echo "Testing DESIGNER..."
+curl -s http://localhost:18902/.well-known/agent-card.json > /dev/null && echo "  ✓ DESIGNER OK" || echo "  ✗ DESIGNER failed"
+
+# Start XHS
+echo ""
+echo "4/5 - Starting XHS"
+HOME=/root/openclaw-instances/xhs nohup openclaw gateway > /var/log/openclaw-xhs.log 2>&1 &
+sleep 15
+echo "Testing XHS..."
+curl -s http://localhost:18903/.well-known/agent-card.json > /dev/null && echo "  ✓ XHS OK" || echo "  ✗ XHS failed"
+
+# Start HEALER
+echo ""
+echo "5/5 - Starting HEALER"
+HOME=/root/openclaw-instances/healer nohup openclaw gateway > /var/log/openclaw-healer.log 2>&1 &
+sleep 15
+echo "Testing HEALER..."
+curl -s http://localhost:18904/.well-known/agent-card.json > /dev/null && echo "  ✓ HEALER OK" || echo "  ✗ HEALER failed"
+
+echo ""
+echo "=== Final Status ==="
+echo "Ports:"
+ss -tlnp 2>&1 | grep -E '187|188|189' | sort
+echo ""
+echo "Processes:"
+ps aux | grep openclaw | grep -v grep

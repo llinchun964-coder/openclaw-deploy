@@ -1,0 +1,69 @@
+#!/bin/bash
+
+echo "Killing existing openclaw processes..."
+pkill -f "openclaw gateway" 2>/dev/null
+sleep 2
+
+# Create instance home dirs
+mkdir -p /root/openclaw-instances/main
+mkdir -p /root/openclaw-instances/cto
+mkdir -p /root/openclaw-instances/designer
+mkdir -p /root/openclaw-instances/xhs
+mkdir -p /root/openclaw-instances/healer
+mkdir -p /var/log
+
+# Copy configs to instance home dirs
+echo "Setting up configs..."
+rm -rf /root/openclaw-instances/main/.openclaw
+cp -a /root/.openclaw /root/openclaw-instances/main/
+
+rm -rf /root/openclaw-instances/cto/.openclaw
+cp -a /root/openclaw-docker/instances/cto/.openclaw /root/openclaw-instances/cto/
+
+rm -rf /root/openclaw-instances/designer/.openclaw
+cp -a /root/openclaw-docker/instances/designer/.openclaw /root/openclaw-instances/designer/
+
+rm -rf /root/openclaw-instances/xhs/.openclaw
+cp -a /root/openclaw-docker/instances/xhs/.openclaw /root/openclaw-instances/xhs/
+
+rm -rf /root/openclaw-instances/healer/.openclaw
+cp -a /root/openclaw-docker/instances/healer/.openclaw /root/openclaw-instances/healer/
+
+# Also copy a2a-gateway extension to each instance
+echo "Setting up a2a-gateway extension..."
+for instance in main cto designer xhs healer; do
+  mkdir -p /root/openclaw-instances/$instance/.openclaw/extensions
+  rm -rf /root/openclaw-instances/$instance/.openclaw/extensions/a2a-gateway
+  cp -a /root/.openclaw/extensions/a2a-gateway /root/openclaw-instances/$instance/.openclaw/extensions/
+done
+
+echo "Starting main (南朝译 COO)..."
+HOME=/root/openclaw-instances/main nohup openclaw gateway > /var/log/openclaw-main.log 2>&1 &
+echo $! > /var/run/openclaw-main.pid
+sleep 5
+
+echo "Starting cto (南朝译技术)..."
+HOME=/root/openclaw-instances/cto nohup openclaw gateway > /var/log/openclaw-cto.log 2>&1 &
+echo $! > /var/run/openclaw-cto.pid
+sleep 5
+
+echo "Starting designer..."
+HOME=/root/openclaw-instances/designer nohup openclaw gateway > /var/log/openclaw-designer.log 2>&1 &
+echo $! > /var/run/openclaw-designer.pid
+sleep 5
+
+echo "Starting xhs (小红书运营)..."
+HOME=/root/openclaw-instances/xhs nohup openclaw gateway > /var/log/openclaw-xhs.log 2>&1 &
+echo $! > /var/run/openclaw-xhs.pid
+sleep 5
+
+echo "Starting healer (南南)..."
+HOME=/root/openclaw-instances/healer nohup openclaw gateway > /var/log/openclaw-healer.log 2>&1 &
+echo $! > /var/run/openclaw-healer.pid
+sleep 5
+
+echo "Done!"
+echo "Checking running processes..."
+ps aux | grep openclaw | grep -v grep
+echo "Checking ports..."
+ss -tlnp 2>&1 | grep -E '187|188|189'

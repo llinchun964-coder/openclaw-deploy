@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  shujuguan:
+    build: .
+    container_name: openclaw-shujuguan
+    restart: unless-stopped
+    ports:
+      - "18701:18700"
+      - "18901:18800"
+    volumes:
+      - ./instances/shujuguan/.openclaw:/root/.openclaw
+      - ./instances/shujuguan/workspace:/root/workspace
+    networks:
+      - openclaw-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  shipinzhuanyuan:
+    build: .
+    container_name: openclaw-shipinzhuanyuan
+    restart: unless-stopped
+    ports:
+      - "18702:18700"
+      - "18902:18800"
+    volumes:
+      - ./instances/shipinzhuanyuan/.openclaw:/root/.openclaw
+      - ./instances/shipinzhuanyuan/workspace:/root/workspace
+    networks:
+      - openclaw-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  toushou:
+    build: .
+    container_name: openclaw-toushou
+    restart: unless-stopped
+    ports:
+      - "18703:18700"
+      - "18903:18800"
+    volumes:
+      - ./instances/toushou/.openclaw:/root/.openclaw
+      - ./instances/toushou/workspace:/root/workspace
+    networks:
+      - openclaw-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  yunyingguan:
+    build: .
+    container_name: openclaw-yunyingguan
+    restart: unless-stopped
+    ports:
+      - "18704:18700"
+      - "18904:18800"
+    volumes:
+      - ./instances/yunyingguan/.openclaw:/root/.openclaw
+      - ./instances/yunyingguan/workspace:/root/workspace
+    networks:
+      - openclaw-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  openclaw-network:
+    driver: bridge

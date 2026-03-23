@@ -1,0 +1,189 @@
+# 飞书 MCP 服务器
+
+这是一个用于 Claude Code 的飞书 MCP 服务器，提供发送消息等功能。
+
+## 功能特性
+
+- ✅ 发送消息到群聊或用户
+- ✅ 获取群聊列表
+- ✅ 获取群聊详细信息
+- ✅ 测试连接状态
+
+## 前置准备
+
+### 1. 创建飞书应用
+
+1. 访问 [飞书开放平台](https://open.feishu.cn/) 并登录
+2. 进入 **控制台** → **创建应用**
+3. 选择 **自定义开发** → **创建应用**
+4. 填写应用名称和描述，点击创建
+
+### 2. 获取凭证
+
+在应用详情页的 **凭证与基础信息** 中获取:
+- `App ID` (如: cli_a1b2c3d4e5f6g7h8)
+- `App Secret`
+
+### 3. 配置权限
+
+在 **权限管理** 中添加以下权限:
+- `im:message` - 发送消息
+- `im:message.group_at_msg` - 发送群聊消息
+- `im:chat` - 获取群聊信息
+
+### 4. 发布版本
+
+在 **版本管理与发布** 中创建版本并发布（可以选择仅企业内部可用）
+
+## 安装步骤
+
+### 1. 安装依赖
+
+```bash
+cd /root/feishu-mcp-server
+pip install -r requirements.txt
+```
+
+### 2. 配置环境变量
+
+复制示例配置文件:
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件，填入你的飞书应用凭证:
+
+```bash
+FEISHU_APP_ID=cli_xxxxxxxxxxxxx
+FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### 3. 配置到 Claude Code
+
+有两种方式配置:
+
+#### 方式 A: 使用命令行添加 (推荐)
+
+```bash
+claude mcp add --transport stdio feishu \
+  --env FEISHU_APP_ID=your_app_id \
+  --env FEISHU_APP_SECRET=your_app_secret \
+  -- python /root/feishu-mcp-server/server.py
+```
+
+#### 方式 B: 使用 .mcp.json 文件
+
+编辑 `/root/feishu-mcp-server/.mcp.json`，填入凭证:
+
+```json
+{
+  "mcpServers": {
+    "feishu": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["/root/feishu-mcp-server/server.py"],
+      "env": {
+        "FEISHU_APP_ID": "your_app_id_here",
+        "FEISHU_APP_SECRET": "your_app_secret_here"
+      }
+    }
+  }
+}
+```
+
+然后将此文件复制到你的项目根目录，或在 Claude Code 中通过 `/mcp` 命令添加。
+
+## 使用方法
+
+在 Claude Code 中，你可以使用以下工具:
+
+### 1. 测试连接
+
+首先测试飞书连接是否正常:
+
+```
+使用 test_feishu_connection 工具测试连接
+```
+
+### 2. 获取群聊列表
+
+```
+使用 list_feishu_chats 工具获取群聊列表
+```
+
+这会返回所有群聊的名称和 ID，你可以从中获取 `chat_id` 用于发送消息。
+
+### 3. 发送消息
+
+```
+使用 send_feishu_message 工具发送消息，参数:
+- receive_id: 群聊 ID 或用户 ID
+- content: 消息内容
+- receive_id_type: 默认为 "chat_id" (群聊)，如果发给用户可用 "open_id" 或 "email"
+```
+
+**示例 - 发送到群聊:**
+```
+send_feishu_message(receive_id="oc_xxxxxxxxxx", content="Hello from Claude Code!")
+```
+
+**示例 - 发送到用户 (通过邮箱):**
+```
+send_feishu_message(receive_id="user@example.com", content="Hi!", receive_id_type="email")
+```
+
+### 4. 获取群聊详情
+
+```
+使用 get_feishu_chat_info 工具，传入 chat_id
+```
+
+## 常用命令
+
+```bash
+# 查看已配置的 MCP 服务器
+claude mcp list
+
+# 查看飞书服务器详情
+claude mcp get feishu
+
+# 删除飞书服务器
+claude mcp remove feishu
+```
+
+## 故障排除
+
+### 问题: 获取访问令牌失败
+
+检查:
+- App ID 和 App Secret 是否正确
+- 应用是否已发布
+
+### 问题: 消息发送失败
+
+检查:
+- 机器人是否已加入群聊
+- 是否已配置 `im:message` 权限
+- `receive_id_type` 是否正确
+
+### 问题: 找不到群聊
+
+确保:
+- 机器人已加入该群聊
+- 使用 `list_feishu_chats` 获取正确的 chat_id
+
+## 项目结构
+
+```
+feishu-mcp-server/
+├── server.py          # MCP 服务器主程序
+├── requirements.txt   # Python 依赖
+├── .mcp.json         # MCP 配置示例
+├── .env.example      # 环境变量示例
+└── README.md         # 使用说明
+```
+
+## 许可证
+
+MIT

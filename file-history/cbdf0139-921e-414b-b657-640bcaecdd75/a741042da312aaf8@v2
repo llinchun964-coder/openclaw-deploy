@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""
+飞书 WebSocket 长连接机器人
+使用 WebSocket 接收消息并自动回复，无需公网 IP
+"""
+
+import os
+import json
+import asyncio
+import time
+from typing import Optional, Dict, Any
+from datetime import datetime
+from dotenv import load_dotenv
+import requests
+import websockets
+
+# 加载环境变量
+load_dotenv()
+
+
+class FeishuWebSocketBot:
+    """飞书 WebSocket 机器人"""
+
+    def __init__(self, app_id: str, app_secret: str):
+        self.app_id = app_id
+        self.app_secret = app_secret
+        self._tenant_access_token: Optional[str] = None
+        self.base_url = "https://open.feishu.cn/open-apis"
+        self.websocket_url: Optional[str] = None
+        self.running = False
+
+    def get_tenant_access_token(self, force_refresh: bool = False) -> str:
+        """获取租户访问令牌"""
+        if not force_refresh and self._tenant_access_token:
+            return self._tenant_access_token
+
+        url = f"{self.base_url}/auth/v3/tenant_access_token/internal"
+        resp = requests.post(url, json={
+            "app_id": self.app_id,
+            "app_secret": self.app_secret
+        })
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("code") != 0:
+            raise Exception(f"获取访问令牌失败: {data.get('msg', '未知错误')}")
+
+        self._tenant_access_token = data["tenant_access_token"]
+        return self._tenant_access_token
+
+    def _request(self, method: str, path: str, **kwargs) -> Dict[str, Any]:
+        """发送请求到飞书 API"""
+        url = f"{self.base_url}{path}"
+        headers = kwargs.pop("headers", {})
+        headers["Authorization"] = f"Bearer {self.get_tenant_access_token()}"
+
+        resp = requests.request(method, url, headers=headers, **kwargs)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if data.get("code") != 0:
+            if data.get("code") == 99991663:  # token 过期
+                self.get_tenant_access_token(force_refresh=True)
+                return self._request(method, path, **kwargs)
+            raise Exception(f"API 请求失败: {data.get('msg', '未知错误')} (code: {data.get('code')})")
+
+        return data
+
+    def send_message(self, receive_id: str, content: str, msg_type: str = "text", receive_id_type: str = "open_id") -> Dict[str, Any]:
+        """发送消息"""
+        if msg_type == "text":
+            msg_content = json.dumps({"text": content}, ensure_ascii=False)
+        else:
+            msg_content = content
+
+        return self._request(
+            "POST",
+            "/im/v1/messages",
+            params={"receive_id_type": receive_id_type},
+            json={
+                "receive_id": receive_id,
+                "msg_type": msg_type,
+                "content": msg_content
+            }
+        )
+
+    def get_websocket_endpoint(self) -> str:
+        """获取 WebSocket 连接地址"""
+        result = self._request(
+            "POST",
+            "/ws/v1/path",
+            json={}
+        )
+        url = result.get("data", {}).get("url")
+        if not url:
+            raise Exception("获取 WebSocket 地址失败")
+        return url
+
+    def generate_reply(self, message: str) -> str:
+        """根据用户消息生成回复"""
+        message_lower = message.strip().lower()
+
+        # 简单的回复规则
+        if any(keyword in message_lower for keyword in ["你好", "您好", "hi", "hello", "嗨"]):
+            return "你好！我是飞书机器人，有什么可以帮助你的吗？"
+        elif any(keyword in message_lower for keyword in ["谢谢", "感谢", "thx", "thanks"]):
+            return "不客气！很高兴能帮到你 😊"
+        elif any(keyword in message_lower for keyword in ["再见", "拜拜", "bye", "goodbye"]):
+            return "再见！有需要随时找我 👋"
+        elif any(keyword in message_lower for keyword in ["时间", "几点", "date", "time"]):
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return f"当前时间是：{now}"
+        else:
+            return f"收到你的消息：「{message}」\n我还在学习中，暂时只能处理简单对话～"
+
+    async def handle_event(self, event: Dict[str, Any]):
+        """处理接收到的事件"""
+        header = event.get("header", {})
+        event_type = header.get("event_type")
+
+        if event_type == "im.message.receive_v1":
+            event_data = event.get("event", {})
+            message = event_data.get("message", {})
+            sender = event_data.get("sender", {})
+
+            # 获取消息内容
+            try:
+                content = json.loads(message.get("content", "{}"))
+                text = content.get("text", "")
+            except:
+                text = ""
+
+            # 获取发送者 ID
+            sender_id = sender.get("sender_id", {}).get("open_id", "")
+
+            # 检查是否是机器人自己发的消息（避免死循环）
+            if message.get("sender", {}).get("sender_type") == "app":
+                return
+
+            # 只有在私聊或被 @ 时才回复
+            chat_type = message.get("chat_type", "")
+            mentions = message.get("mentions", [])
+
+            should_reply = False
+            if chat_type == "p2p":
+                # 私聊直接回复
+                should_reply = True
+            elif chat_type == "group" and mentions:
+                # 群聊需要被 @
+                for mention in mentions:
+                    if mention.get("id", {}).get("id_type") == "app":
+                        should_reply = True
+                        # 移除 @ 机器人的部分
+                        mention_text = mention.get("key", "")
+                        if mention_text and text.startswith(mention_text):
+                            text = text[len(mention_text):].strip()
+                        break
+
+            if should_reply and sender_id and text:
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 收到消息: {text}")
+                # 生成回复
+                reply_text = self.generate_reply(text)
+                try:
+                    self.send_message(
+                        receive_id=sender_id,
+                        content=reply_text,
+                        receive_id_type="open_id"
+                    )
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 已回复: {reply_text}")
+                except Exception as e:
+                    print(f"发送回复失败: {e}")
+
+    async def run_forever(self):
+        """运行 WebSocket 客户端"""
+        self.running = True
+
+        while self.running:
+            try:
+                # 获取 WebSocket 地址
+                self.websocket_url = self.get_websocket_endpoint()
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 连接到: {self.websocket_url[:80]}...")
+
+                async with websockets.connect(self.websocket_url) as websocket:
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] WebSocket 已连接！")
+
+                    # 发送握手消息
+                    handshake = {
+                        "type": "framework",
+                        "tag": "hs",
+                        "data": {
+                            "token": self.get_tenant_access_token()
+                        }
+                    }
+                    await websocket.send(json.dumps(handshake))
+
+                    # 持续接收消息
+                    last_heartbeat = time.time()
+                    while self.running:
+                        try:
+                            # 设置超时，定期发送心跳
+                            message = await asyncio.wait_for(websocket.recv(), timeout=30.0)
+                            data = json.loads(message)
+
+                            # 处理消息
+                            msg_type = data.get("type")
+                            if msg_type == "event":
+                                # 处理事件
+                                event_data = data.get("data", {})
+                                await self.handle_event(event_data)
+
+                                # 发送 ACK
+                                ack = {
+                                    "type": "ack",
+                                    "message_id": data.get("message_id")
+                                }
+                                await websocket.send(json.dumps(ack))
+
+                            elif msg_type == "pong":
+                                # 心跳响应
+                                last_heartbeat = time.time()
+
+                        except asyncio.TimeoutError:
+                            # 发送心跳
+                            now = time.time()
+                            if now - last_heartbeat > 25:
+                                ping = {"type": "ping"}
+                                await websocket.send(json.dumps(ping))
+                                last_heartbeat = now
+
+            except websockets.exceptions.ConnectionClosed as e:
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 连接断开: {e}，5秒后重连...")
+                await asyncio.sleep(5)
+            except Exception as e:
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 发生错误: {e}，5秒后重连...")
+                import traceback
+                traceback.print_exc()
+                await asyncio.sleep(5)
+
+    def stop(self):
+        """停止机器人"""
+        self.running = False
+
+
+if __name__ == "__main__":
+    # 从环境变量获取配置
+    APP_ID = os.environ.get("FEISHU_APP_ID", "")
+    APP_SECRET = os.environ.get("FEISHU_APP_SECRET", "")
+
+    if not APP_ID or not APP_SECRET:
+        print("错误: 请设置 FEISHU_APP_ID 和 FEISHU_APP_SECRET 环境变量")
+        exit(1)
+
+    bot = FeishuWebSocketBot(APP_ID, APP_SECRET)
+
+    try:
+        print("飞书 WebSocket 机器人启动中...")
+        print("按 Ctrl+C 停止")
+        print()
+        asyncio.run(bot.run_forever())
+    except KeyboardInterrupt:
+        print("\n正在停止...")
+        bot.stop()

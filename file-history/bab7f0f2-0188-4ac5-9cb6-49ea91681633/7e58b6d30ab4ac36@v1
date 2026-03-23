@@ -1,0 +1,12 @@
+FROM node:22-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends git curl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+RUN npm config set registry https://registry.npmmirror.com
+RUN npm install -g openclaw@2026.3.13
+
+RUN mkdir -p /root/.openclaw/extensions
+
+WORKDIR /root
+
+CMD ["openclaw", "gateway"]

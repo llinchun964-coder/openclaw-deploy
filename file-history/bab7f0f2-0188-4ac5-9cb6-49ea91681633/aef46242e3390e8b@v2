@@ -1,0 +1,87 @@
+#!/bin/bash
+
+echo "=== Killing all openclaw processes ==="
+pkill -f "openclaw gateway" 2>/dev/null || true
+pkill -f "openclaw-gateway" 2>/dev/null || true
+sleep 5
+
+# Cleanup old instance dirs
+rm -rf /root/openclaw-instances
+mkdir -p /root/openclaw-instances/main
+mkdir -p /root/openclaw-instances/cto
+mkdir -p /root/openclaw-instances/designer
+mkdir -p /root/openclaw-instances/xhs
+mkdir -p /root/openclaw-instances/healer
+
+# Copy configs
+echo "=== Copying configs ==="
+cp -a /root/.openclaw /root/openclaw-instances/main/
+cp -a /root/openclaw-docker/instances/cto/.openclaw /root/openclaw-instances/cto/
+cp -a /root/openclaw-docker/instances/designer/.openclaw /root/openclaw-instances/designer/
+cp -a /root/openclaw-docker/instances/xhs/.openclaw /root/openclaw-instances/xhs/
+cp -a /root/openclaw-docker/instances/healer/.openclaw /root/openclaw-instances/healer/
+
+# Copy a2a-gateway extension
+echo "=== Copying a2a-gateway extension ==="
+for instance in main cto designer xhs healer; do
+  mkdir -p /root/openclaw-instances/$instance/.openclaw/extensions
+  cp -a /root/.openclaw/extensions/a2a-gateway /root/openclaw-instances/$instance/.openclaw/extensions/
+done
+
+# Function to start an instance
+start_instance() {
+  local name=$1
+  local port=$2
+  local a2a_port=$3
+
+  echo "=== Starting $name (port $port, a2a $a2a_port) ==="
+  HOME=/root/openclaw-instances/$name nohup openclaw gateway > /var/log/openclaw-$name.log 2>&1 &
+  echo $! > /var/run/openclaw-$name.pid
+  sleep 8
+
+  # Verify
+  if ss -tlnp 2>/dev/null | grep -q ":$port "; then
+    echo "✓ $name gateway port $port is up"
+  else
+    echo "✗ $name gateway port $port failed to start"
+  fi
+
+  if ss -tlnp 2>/dev/null | grep -q ":$a2a_port "; then
+    echo "✓ $name a2a port $a2a_port is up"
+  else
+    echo "✗ $name a2a port $a2a_port failed to start"
+  fi
+}
+
+# Start all instances
+start_instance "main" "18789" "18800"
+start_instance "cto" "18701" "18901"
+start_instance "designer" "18702" "18902"
+start_instance "xhs" "18703" "18903"
+start_instance "healer" "18704" "18904"
+
+echo ""
+echo "=== All instances started ==="
+echo ""
+echo "Running processes:"
+ps aux | grep openclaw | grep -v grep || true
+echo ""
+echo "Listening ports:"
+ss -tlnp 2>&1 | grep -E '187|188|189' | sort || true
+echo ""
+echo "Testing agent cards:"
+echo "  MAIN (18800):"
+curl -s http://localhost:18800/.well-known/agent-card.json 2>/dev/null || echo "  Failed"
+echo ""
+echo "  CTO (18901):"
+curl -s http://localhost:18901/.well-known/agent-card.json 2>/dev/null || echo "  Failed"
+echo ""
+echo "  DESIGNER (18902):"
+curl -s http://localhost:18902/.well-known/agent-card.json 2>/dev/null || echo "  Failed"
+echo ""
+echo "  XHS (18903):"
+curl -s http://localhost:18903/.well-known/agent-card.json 2>/dev/null || echo "  Failed"
+echo ""
+echo "  HEALER (18904):"
+curl -s http://localhost:18904/.well-known/agent-card.json 2>/dev/null || echo "  Failed"
+echo ""

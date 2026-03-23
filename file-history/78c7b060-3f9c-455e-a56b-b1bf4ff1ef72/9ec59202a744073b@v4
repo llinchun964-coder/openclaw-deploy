@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "火山引擎": {
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+        "apiKey": "8c22373b-404a-4f89-8ac0-50992681d1f3",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "ark-code-latest",
+            "name": "ark-code-latest",
+            "reasoning": false,
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "火山引擎/ark-code-latest"
+      },
+      "models": {
+        "火山引擎/ark-code-latest": {
+          "alias": "ark-code-latest"
+        }
+      },
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "shujuguan",
+        "default": true,
+        "name": "数据官"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full"
+  },
+  "bindings": [
+    {
+      "agentId": "shujuguan",
+      "match": {
+        "channel": "feishu",
+        "accountId": "shujuguan"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-account-channel-peer"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "threadSession": true,
+      "replyMode": "auto",
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "groupPolicy": "mention",
+      "dmPolicy": "pairing",
+      "accounts": {
+        "shujuguan": {
+          "appId": "cli_a9322da6f5b8dbc6",
+          "appSecret": "C8yCzhYTnETgGxv9RvlYUcVpdzKKw71b",
+          "botName": "数据官",
+          "groupPolicy": "mention",
+          "dmPolicy": "pairing"
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18700,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://localhost",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "openclaw-token-2026"
+    }
+  },
+  "plugins": {
+    "allow": [
+      "feishu",
+      "a2a-gateway"
+    ],
+    "load": {
+      "paths": [
+        "/root/.openclaw/extensions/a2a-gateway"
+      ]
+    },
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "server": {
+            "port": 18800,
+            "host": "0.0.0.0"
+          },
+          "agentCard": {
+            "name": "shujuguan",
+            "description": "数据官 - Data Officer",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "Chat",
+                "description": "Chat with 数据官"
+              }
+            ]
+          },
+          "peers": [
+            {
+              "name": "zongkong",
+              "agentCardUrl": "http://host.docker.internal:18800/.well-known/agent-card.json"
+            },
+            {
+              "name": "shipinzhuanyuan",
+              "agentCardUrl": "http://shipinzhuanyuan:18800/.well-known/agent-card.json"
+            },
+            {
+              "name": "toushou",
+              "agentCardUrl": "http://toushou:18800/.well-known/agent-card.json"
+            },
+            {
+              "name": "yunyingguan",
+              "agentCardUrl": "http://yunyingguan:18800/.well-known/agent-card.json"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+module.exports = {
+  apps: [
+    {
+      name: "SEO-Master",
+      script: "/root/.openclaw/master/start.sh",
+      max_memory_restart: "4G",
+      kill_timeout: 10000,
+      watch: false,
+      autorestart: true,
+      max_restarts: 100,
+      min_uptime: "30s"
+    }
+  ]
+};

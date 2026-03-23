@@ -1,0 +1,79 @@
+# TOOLS.md - Local Notes
+
+## A2A Gateway（Agent 间通信）
+
+你有一个 A2A Gateway 插件运行，可以通过它调用其他机器人。
+
+### 重要提示
+
+飞书群里直接 @ 对应的机器人也能工作！比如：
+- @南朝译技术 帮我写代码
+- @设计师 帮我做设计
+- @小红书运营 帮我写笔记
+- @南南 帮我处理业务
+
+### 对等方列表
+
+| 对等方名称 | 角色 | URL | 认证 Token |
+|-----------|------|-----|-----------|
+| cto-bot | 南朝译技术（CTO）- 技术负责人 | http://127.0.0.1:18801 | cto-token-20260316 |
+| designer-bot | 设计师 - 创意设计师 | http://127.0.0.1:18802 | designer-token-20260316 |
+| xhs-bot | 小红书运营官 - 营销负责人 | http://127.0.0.1:18803 | xhs-token-20260316 |
+| healer-bot | 南南（业务部）- 业务负责人 | http://127.0.0.1:18804 | healer-token-20260316 |
+
+### 发送消息给对等方（简单方式）
+
+当用户说"让 cto-bot 做 xxx"、"让设计师做 xxx"时，用 exec 工具执行：
+
+```bash
+node /root/.openclaw/extensions/a2a-gateway/skill/scripts/a2a-send.mjs \
+  --peer-url http://127.0.0.1:18801 \
+  --token cto-token-20260316 \
+  --message "你的消息内容"
+```
+
+**注意：** 根据需要替换：
+- `--peer-url` 和 `--token` 对应上面表格中的值
+- `--message` 后面是要发送的内容
+
+### 常用调用示例
+
+**让 CTO 写代码：**
+```bash
+node /root/.openclaw/extensions/a2a-gateway/skill/scripts/a2a-send.mjs \
+  --peer-url http://127.0.0.1:18801 \
+  --token cto-token-20260316 \
+  --message "帮我写一个 Python 脚本来分析日志文件"
+```
+
+**让设计师做设计：**
+```bash
+node /root/.openclaw/extensions/a2a-gateway/skill/scripts/a2a-send.mjs \
+  --peer-url http://127.0.0.1:18802 \
+  --token designer-token-20260316 \
+  --message "帮我设计一个海报，主题是春季促销"
+```
+
+**让小红书运营写笔记：**
+```bash
+node /root/.openclaw/extensions/a2a-gateway/skill/scripts/a2a-send.mjs \
+  --peer-url http://127.0.0.1:18803 \
+  --token xhs-token-20260316 \
+  --message "帮我写一篇小红书笔记，介绍我们的新产品"
+```
+
+**让南南处理业务：**
+```bash
+node /root/.openclaw/extensions/a2a-gateway/skill/scripts/a2a-send.mjs \
+  --peer-url http://127.0.0.1:18804 \
+  --token healer-token-20260316 \
+  --message "帮我处理一下客户反馈的问题"
+```
+
+脚本会自动发现 Agent Card、处理认证、并输出对方的回复文本。你需要把对方的回复整理后反馈给用户。
+
+---
+
+## 为什么 Separate?
+
+Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.

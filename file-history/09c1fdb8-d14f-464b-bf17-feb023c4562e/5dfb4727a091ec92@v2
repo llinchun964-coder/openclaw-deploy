@@ -1,0 +1,13 @@
+#!/bin/bash
+
+LOG_FILE="/root/process-monitor.log"
+
+echo "开始监控进程..." > "$LOG_FILE"
+
+while true; do
+    DATE=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "--- $DATE ---" >> "$LOG_FILE"
+    ps aux | grep -E "openclaw|PM2" | grep -v grep >> "$LOG_FILE" 2>/dev/null || echo "No openclaw/PM2 processes" >> "$LOG_FILE"
+    echo "" >> "$LOG_FILE"
+    sleep 5
+done

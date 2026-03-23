@@ -1,0 +1,5 @@
+#!/bin/bash
+cd /root/.openclaw
+export OPENCLAW_CONFIG_PATH=/root/.openclaw/master/openclaw.json
+export OPENCLAW_DATA_DIR=/root/.openclaw/master/data
+exec /usr/bin/openclaw gateway --force

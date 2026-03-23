@@ -1,0 +1,100 @@
+# Openclaw 备份还原方案
+
+一键备份和还原 Openclaw 多容器系统到 GitHub，支持跨服务器快速迁移。
+
+## 目录结构
+
+```
+openclaw-backup/
+├── README.md                    # 本文档
+├── backup.sh                    # 备份脚本
+├── restore.sh                   # 还原脚本
+├── docker-compose.yml           # Docker 编排文件
+├── .gitignore                   # Git 忽略规则
+├── .env.example                 # 环境变量模板
+├── config/                      # 配置文件目录
+│   ├── openclaw.json            # Openclaw 主配置
+│   └── credentials/             # 凭证（加密存储）
+└── scripts/                     # 辅助脚本
+    ├── export-redis.sh          # 导出 Redis 数据
+    └── import-redis.sh          # 导入 Redis 数据
+```
+
+## 快速开始
+
+### 1. 备份当前服务器
+
+```bash
+# 克隆或创建仓库
+cd /root
+git clone <your-github-repo-url> openclaw-backup
+cd openclaw-backup
+
+# 执行备份
+./backup.sh
+```
+
+### 2. 还原到新服务器
+
+```bash
+# 克隆仓库
+git clone <your-github-repo-url> openclaw-backup
+cd openclaw-backup
+
+# 执行还原
+./restore.sh
+```
+
+## 备份内容
+
+| 内容 | 说明 | 备份方式 |
+|------|------|---------|
+| Docker 镜像 | 所有 openclaw 镜像 | 保存为 tar 或记录版本 |
+| 容器配置 | docker-compose.yml | 直接复制 |
+| Openclaw 配置 | ~/.openclaw/ | 压缩打包（排除大文件） |
+| Redis 数据 | 缓存和任务数据 | RDB 文件导出 |
+| 环境变量 | .env 配置 | 模板化处理 |
+| 启动脚本 | 各种启动脚本 | 备份到 scripts/ |
+
+## 详细文档
+
+### backup.sh - 备份脚本
+
+```bash
+./backup.sh [options]
+
+选项:
+  -f, --full      完整备份（包括镜像和大文件）
+  -q, --quick     快速备份（仅配置和脚本）
+  -m, --message   提交信息
+```
+
+### restore.sh - 还原脚本
+
+```bash
+./restore.sh [options]
+
+选项:
+  -f, --force     强制覆盖现有数据
+  -s, --skip-images  跳过 Docker 镜像导入
+```
+
+## 安全注意事项
+
+⚠️ **重要**：
+- `.env` 文件包含 API 密钥，使用 `.env.example` 模板
+- `credentials/` 目录下的敏感信息会被加密
+- 不要将真实密钥提交到公开仓库
+
+## 仓库初始化
+
+首次使用：
+
+```bash
+cd /root/openclaw-backup
+git init
+git add .
+git commit -m "Initial backup"
+git remote add origin git@github.com:yourusername/openclaw-backup.git
+git push -u origin main
+```

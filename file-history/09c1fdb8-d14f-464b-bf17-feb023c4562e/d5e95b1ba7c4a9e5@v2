@@ -1,0 +1,106 @@
+# 快速入门指南
+
+## 首次备份到 GitHub
+
+### 1. 准备仓库
+
+```bash
+cd /root/openclaw-backup
+
+# 初始化 Git
+git init
+git add .
+git commit -m "Initial commit: Openclaw backup structure"
+
+# 创建 GitHub 仓库（需手动在 GitHub 创建）
+# 然后关联远程仓库
+git remote add origin git@github.com:你的用户名/openclaw-backup.git
+```
+
+### 2. 运行备份脚本
+
+```bash
+# 快速备份（推荐）
+./backup.sh --quick -m "First backup: configs and scripts"
+
+# 完整备份（包含镜像，文件较大）
+./backup.sh --full -m "Full backup including images"
+```
+
+### 3. 推送到 GitHub
+
+```bash
+# 推送到远程仓库
+git push -u origin main
+```
+
+---
+
+## 在新服务器上还原
+
+### 1. 克隆仓库
+
+```bash
+cd /root
+git clone git@github.com:你的用户名/openclaw-backup.git
+cd openclaw-backup
+```
+
+### 2. 运行还原脚本
+
+```bash
+# 正常还原
+./restore.sh
+
+# 强制覆盖（如果有旧数据）
+./restore.sh --force
+```
+
+### 3. 配置环境变量
+
+```bash
+# 编辑 .env 文件，填入你的 API 密钥
+cp .env.example /root/.openclaw/.env
+nano /root/.openclaw/.env
+```
+
+### 4. 启动服务
+
+```bash
+# 使用 docker-compose
+cd /root/.openclaw
+docker-compose up -d
+
+# 或使用启动脚本
+cd /root
+./start-all-final.sh
+```
+
+---
+
+## 目录说明
+
+| 文件/目录 | 说明 |
+|----------|------|
+| `backup.sh` | 备份脚本 |
+| `restore.sh` | 还原脚本 |
+| `docker-compose.yml` | Docker 编排配置 |
+| `.gitignore` | Git 忽略规则 |
+| `.env.example` | 环境变量模板 |
+| `config/` | 配置文件目录 |
+| `scripts/` | 辅助脚本（Redis 导入导出等）|
+| `data/` | 备份数据目录 |
+| `images/` | Docker 镜像目录（完整备份时生成）|
+
+---
+
+## 常见问题
+
+### Q: 备份文件太大怎么办？
+A: 使用 `--quick` 参数只备份配置和脚本，Docker 镜像可以在新服务器上重新构建。
+
+### Q: 如何更新备份？
+A: 重新运行 `./backup.sh` 然后 git push 即可。
+
+### Q: 敏感信息会提交到 GitHub 吗？
+A: 不会。`.env` 和 `credentials/` 目录已在 `.gitignore` 中排除。
