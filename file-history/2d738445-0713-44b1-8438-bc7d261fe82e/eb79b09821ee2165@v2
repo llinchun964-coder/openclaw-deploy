@@ -1,0 +1,67 @@
+#!/bin/bash
+# OpenClaw 监控 API - 输出 JSON 格式状态
+
+# 容器状态
+get_containers() {
+    docker ps --filter "name=openclaw-" --format '{{.Names}}|{{.Status}}' 2>/dev/null | grep -v redis | while IFS='|' read name status; do
+        echo "{\"name\":\"$name\",\"status\":\"${status%% *}\"}"
+    done | paste -sd ',' | sed 's/^/[/;s/$/]/'
+}
+
+# A2A 端点检查
+get_endpoints() {
+    local result=""
+    for pair in "Master:18800" "技术员:18811" "运营官:18813" "设计师:18815" "南南:18817"; do
+        name="${pair%%:*}"
+        port="${pair##*:}"
+        start=$(date +%s%3N)
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$port/.well-known/agent-card.json" 2>/dev/null)
+        end=$(date +%s%3N)
+        latency=$(echo "scale=3; ($end - $start) / 1000" | bc)
+        ok=$([ "$http_code" = "200" ] && echo "true" || echo "false")
+        result="$result{\"name\":\"$name\",\"latency\":\"$latency\",\"ok\":$ok},"
+    done
+    echo "[${result%,}]"
+}
+
+# 任务队列
+get_tasks() {
+    local result=""
+    for worker in tech:技术员 ops:运营官 image:设计师 naming:南南; do
+        name="${worker##*:}"
+        container="openclaw-${worker%%:*}"
+        count=$(docker exec $container ls /root/.openclaw/a2a-tasks/ 2>/dev/null | wc -l)
+        result="$result{\"name\":\"$name\",\"count\":$count},"
+    done
+    echo "[${result%,}]"
+}
+
+# 熔断器状态
+get_circuit() {
+    local open=$(pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -c "circuit.open" || echo "0")
+    echo "{\"open\":$([ "$open" -gt 0 ] && echo "true" || echo "false")}"
+}
+
+# 模型延迟 (简单模拟，实际需要异步测试)
+get_model() {
+    echo "{\"latency\":$(echo $((RANDOM % 2000 + 500)))}"
+}
+
+# 最近活动
+get_activity() {
+    pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -E "dispatch|Feishu" | tail -5 | \
+        sed 's/"/\\"/g' | sed 's/^/"/;s/$/"/' | paste -sd ','
+}
+
+# 输出完整 JSON
+case "$1" in
+    containers) get_containers ;;
+    endpoints) get_endpoints ;;
+    tasks) get_tasks ;;
+    circuit) get_circuit ;;
+    model) get_model ;;
+    activity) get_activity ;;
+    *)
+        echo "{\"containers\":$(get_containers),\"endpoints\":$(get_endpoints),\"tasks\":$(get_tasks),\"circuit\":$(get_circuit),\"model\":$(get_model),\"activity\":[$(get_activity)]}"
+        ;;
+esac

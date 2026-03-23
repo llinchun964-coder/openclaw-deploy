@@ -1,0 +1,28 @@
+---
+name: monitor_task_management
+description: 监控网页任务管理功能的实现和数据源
+type: project
+---
+
+**功能**：在 `/root/.openclaw/web-monitor.py` 监控网页中添加了任务队列管理功能。
+
+**实现内容**：
+1. 新增 `get_worker_tasks()` 函数 - 获取 4 个 Worker (tech/ops/image/naming) 的任务状态
+2. 新增 `get_task_history()` 函数 - 获取任务历史列表
+3. 新增 `add_task_to_history()` 函数 - 添加任务到历史记录
+4. 任务数据存储在 `/root/.openclaw/logs/task-history.json`
+
+**UI 展示**：
+- 任务队列卡片网格：显示每个 Worker 的待处理任务数量
+- 最近任务时间：从 PM2 日志中解析最近任务分发时间
+- 任务历史列表：显示最近 30 条任务记录
+
+**数据源**：
+- Worker 任务数：`docker exec openclaw-{worker} ls /root/.openclaw/a2a-tasks/pending/ | wc -l`
+- 最近任务：`pm2 logs master-nanchaoyi --lines 50 --nostream | grep -i 'dispatch.*{worker}'`
+
+**注意事项**：
+- 当前 Worker 容器内可能没有 `/root/.openclaw/a2a-tasks/pending/` 目录，此时显示 0 个任务
+- 任务历史需要通过 `add_task_to_history()` 手动添加，或后续通过 API 自动记录
+
+**访问地址**：`http://198.200.39.21:18080`

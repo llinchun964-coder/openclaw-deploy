@@ -1,0 +1,23 @@
+#!/bin/bash
+# 简单版监控 - 一目了然
+
+echo "=============================="
+echo "  南朝译 AI 员工状态"
+echo "  $(date '+%m-%d %H:%M')"
+echo "=============================="
+
+# 用颜色显示状态
+for name_port in "技术员:18811" "运营官:18813" "设计师:18815" "南南:18817"; do
+    name=${name_port%%:*}
+    port=${name_port##*:}
+
+    if curl -s "http://127.0.0.1:$port/.well-known/agent-card.json" > /dev/null 2>&1; then
+        echo "✓ $name：正常"
+    else
+        echo "✗ $name：异常"
+    fi
+done
+
+echo "=============================="
+echo ""
+echo "想看详细运行：bash /root/.openclaw/monitor.sh"

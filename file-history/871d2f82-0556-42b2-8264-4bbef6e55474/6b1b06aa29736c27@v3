@@ -1,0 +1,100 @@
+# 南朝译 AI 员工监控系统 - 使用指南
+
+## 统一监控入口
+
+**Control Center UI**: http://127.0.0.1:4310
+**外网访问**: http://198.200.39.21:4310
+
+所有监控功能已整合到 Control Center 中，旧 Python 监控网页已停用。
+
+---
+
+## 权限配置
+
+当前配置：**已开放权限，无需 Token 认证**
+
+```bash
+# .env 配置
+READONLY_MODE=false          # 关闭只读模式
+LOCAL_TOKEN_AUTH_REQUIRED=false  # 无需 Token 认证
+APPROVAL_ACTIONS_ENABLED=true    # 启用审批操作
+```
+
+如需添加 Token 保护，设置：
+```bash
+LOCAL_TOKEN_AUTH_REQUIRED=true
+LOCAL_API_TOKEN=your-secret-token-here
+```
+
+---
+
+## 功能模块
+
+### 1. 南朝译监控页面
+访问：http://127.0.0.1:4310/?section=nanchaoyi-monitor
+
+**显示内容：**
+- 系统健康摘要（运行实例数、健康端点数）
+- 容器状态（Master+4 Worker+Redis 的 CPU/内存/运行时长）
+- A2A 端点健康（5 个端点的延迟检测）
+- 协作日志（最近 10 条跨 Agent 通信）
+
+**API 端点：**
+| 端点 | 功能 |
+|------|------|
+| `/api/docker/containers` | 获取容器状态 |
+| `/api/a2a/endpoints` | 获取 A2A 端点健康 |
+| `/api/collaboration/log` | 获取协作日志 |
+
+---
+
+## 监控的实例
+
+| 角色 | 名称 | 端口 | 类型 |
+|------|------|------|------|
+| CEO | Master | 18789 (WS) / 18800 (A2A) | PM2 |
+| CTO | 技术员 | 18811 | Docker |
+| 运营官 | 运营官 | 18813 | Docker |
+| 设计师 | 设计师 | 18815 | Docker |
+| 南南 | 命名官 | 18817 | Docker |
+| 记忆池 | Redis | 16379 | Docker |
+
+---
+
+## 启动/重启监控服务
+
+```bash
+# 启动 Control Center UI
+cd /root/openclaw-control-center
+npm run dev:ui
+
+# 后台运行（生产环境）
+nohup npm run dev:ui > /root/.openclaw/logs/control-center.log 2>&1 &
+
+# 重启服务
+pkill -f "tsx src/index.ts"
+npm run dev:ui &
+```
+
+---
+
+## 验证监控正常
+
+```bash
+# 1. 检查服务端口
+ss -tlnp | grep 4310
+
+# 2. 测试 API
+curl http://127.0.0.1:4310/api/docker/containers | python3 -m json.tool
+
+# 3. 访问网页
+curl -s "http://127.0.0.1:4310/?section=nanchaoyi-monitor&lang=zh" | grep -o "<h2>.*</h2>"
+```
+
+---
+
+## 技术栈
+
+- **Control Center**: TypeScript + Node.js
+- **数据来源**: Docker 命令、PM2 日志、A2A HTTP 检测
+- **适配器**: `/root/openclaw-control-center/src/adapters/docker-monitor.ts`

@@ -1,0 +1,43 @@
+---
+name: 监控系统统一方案
+description: 南朝译监控系统从 Python 迁移到 Control Center 的完整方案
+type: project
+---
+
+**监控系统统一完成 - 2026-03-23**
+
+**Why:**
+- 两个监控系统（Python web-monitor.py 和 Control Center）功能重复，维护成本高
+- Python 监控网页功能孤立，无法与其他 Control Center 功能联动
+- Control Center 有更好的扩展性和技术栈一致性
+
+**How to apply:**
+1. 旧 Python 监控进程已停止（`pkill -f web-monitor.py`）
+2. 所有监控功能整合到 Control Center UI: http://127.0.0.1:4310
+3. **总览页面**直接显示南朝译系统健康卡片（6 个实例状态、A2A 健康度）
+4. 导航栏"南朝译监控"入口可查看完整监控详情
+5. 三个 API 端点提供数据：`/api/docker/containers`, `/api/a2a/endpoints`, `/api/collaboration/log`
+
+**启动命令:**
+```bash
+cd /root/openclaw-control-center
+npm run dev:ui  # 或后台运行：nohup npm run dev:ui > /root/.openclaw/logs/control-center.log 2>&1 &
+```
+
+**监控的 6 个实例：**
+- CEO (Master/PM2) - 18789/18800
+- CTO (技术员) - 18811
+- 运营官 - 18813
+- 设计师 - 18815
+- 南南 - 18817
+- Redis 记忆池 - 16379
+
+**文件位置:**
+- 适配器：`/root/openclaw-control-center/src/adapters/docker-monitor.ts`
+- UI server: `/root/openclaw-control-center/src/ui/server.ts` (新增 `renderNanchaoyiMonitorSection` 和 `renderNanchaoyiMonitorCard` 函数)
+- 使用文档：`/root/.openclaw/monitor-readme.md`
+
+**整合效果:**
+- 总览页卡片：显示运行状态 (6/6)、A2A 健康 (5/5)、快速状态条
+- 导航栏入口：点击"南朝译监控"查看完整表格和协作日志
+- 数据实时刷新：每次访问总览页自动加载最新状态

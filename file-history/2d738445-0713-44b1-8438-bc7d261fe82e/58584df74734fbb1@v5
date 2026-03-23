@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""OpenClaw 监控网页 - 静态 HTML 版本"""
+
+import http.server
+import socketserver
+import subprocess
+import re
+from datetime import datetime
+
+PORT = 18080
+
+def run_cmd(cmd):
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+        return result.stdout.strip()
+    except:
+        return ""
+
+def clean_ansi(text):
+    text = re.sub(r'\x1B\[[0-9;]*[a-zA-Z]', '', text)
+    text = re.sub(r'\x1B[@-Z\\-_]', '', text)
+    return text.strip()
+
+def get_html():
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # Worker 状态
+    workers_html = ""
+    for name, port, icon in [("技术员", 18811, "👨‍💻"), ("运营官", 18813, "📝"), ("设计师", 18815, "🎨"), ("南南", 18817, "🤖")]:
+        code = run_cmd(f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/.well-known/agent-card.json")
+        latency = run_cmd(f"curl -s -o /dev/null -w '%{{time_total}}' http://127.0.0.1:{port}/.well-known/agent-card.json")
+        ok = code == "200"
+        color = "#00ff88" if ok else "#ff4444"
+        status = "✓ 正常" if ok else "✗ 异常"
+        extra = f'<div style="font-size:11px;color:#666;margin-top:4px">{latency}秒</div>' if ok else ""
+        workers_html += f'''
+        <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:20px;text-align:center;border:2px solid {color}">
+            <div style="font-size:36px">{icon}</div>
+            <div style="font-size:16px;color:#ccc;margin:8px 0">{name}</div>
+            <div style="display:inline-block;padding:4px 16px;border-radius:20px;font-size:14px;font-weight:bold;background:{color}33;color:{color}">{status}</div>
+            {extra}
+        </div>'''
+
+    # 活动日志
+    logs = clean_ansi(run_cmd("pm2 logs master-nanchaoyi --lines 3 --nostream 2>&1 | grep -i 'feishu\\|dispatch' | tail -3"))
+    activity_html = ""
+    if logs:
+        for log in logs.split('\n'):
+            if log.strip():
+                activity_html += f'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:11px;color:#aaa">{log}</div>'
+    else:
+        activity_html = '<div style="color:#666">无新消息</div>'
+
+    # 系统状态
+    containers = run_cmd("docker ps --filter 'name=openclaw-' --format '{{.Names}}' | grep -v redis | tr '\\n' ',' ").replace(',', ', ').rstrip(', ')
+    circuit_check = run_cmd("pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -c 'circuit.open' || echo 0").strip()
+    circuit = "✓ 正常" if circuit_check == "0" else "⚠ 有熔断"
+    circuit_color = "#00ff88" if circuit_check == "0" else "#ff4444"
+    tasks = run_cmd("docker exec openclaw-tech ls /root/.openclaw/a2a-tasks/ 2>/dev/null | wc -l") or "0"
+
+    return f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="5">
+<title>南朝译 AI 监控</title>
+<style>
+body{{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:20px;margin:0}}
+h1{{text-align:center;color:#00d9ff;margin-bottom:10px;font-size:22px}}
+.time{{text-align:center;color:#888;font-size:13px;margin-bottom:20px}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;max-width:700px;margin:0 auto 20px}}
+.section{{max-width:700px;margin:15px auto;background:rgba(255,255,255,0.05);border-radius:10px;padding:15px}}
+.section h3{{color:#00d9ff;font-size:15px;margin-bottom:10px}}
+.footer{{text-align:center;margin-top:20px;color:#666;font-size:12px}}
+</style>
+</head>
+<body>
+<h1>📊 南朝译 AI 员工监控</h1>
+<p class="time">更新时间：{now}</p>
+<div class="grid">{workers_html}</div>
+<div class="section"><h3>📝 最近活动</h3>{activity_html}</div>
+<div class="section"><h3>⚡ 系统状态</h3>
+<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:13px"><span>🐳 容器</span><span style="float:right;color:#aaa">{containers or "无"}</span></div>
+<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:13px"><span>⚡ 熔断器</span><span style="float:right;color:{circuit_color}">{circuit}</span></div>
+<div style="padding:8px 0;font-size:13px"><span>📋 任务队列</span><span style="float:right;color:#aaa">{tasks}</span></div>
+</div>
+<p class="footer">每 5 秒自动刷新</p>
+</body>
+</html>'''
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(get_html().encode('utf-8'))
+    def log_message(self, format, *args):
+        pass
+
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"监控网页已启动：http://0.0.0.0:{PORT}")
+        httpd.serve_forever()

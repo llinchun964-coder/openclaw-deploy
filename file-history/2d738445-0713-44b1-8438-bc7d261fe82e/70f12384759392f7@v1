@@ -1,0 +1,76 @@
+services:
+  tech:
+    image: openclaw-docker_cto:latest
+    container_name: openclaw-tech
+    ports:
+      - "18790:18789"
+      - "18901:18811"
+    volumes:
+      - /root/.openclaw/shared-context:/root/.openclaw/shared-context:ro
+      - /root/.openclaw/tech/workspace:/root/.openclaw/workspace:rw
+      - /root/.openclaw/tech/openclaw.json:/root/.openclaw/openclaw.json:ro
+    environment:
+      - OPENCLAW_CONFIG_PATH=/root/.openclaw/openclaw.json
+    restart: unless-stopped
+    networks:
+      - openclaw-redis-shared
+    mem_limit: 2g
+    cpus: 1
+
+  ops:
+    image: openclaw-docker_xhs:latest
+    container_name: openclaw-ops
+    ports:
+      - "18795:18789"
+      - "18802:18802"
+    volumes:
+      - /root/.openclaw/shared-context:/root/.openclaw/shared-context:ro
+      - /root/.openclaw/ops/workspace:/root/.openclaw/workspace:rw
+      - /root/.openclaw/ops/openclaw.json:/root/.openclaw/openclaw.json:ro
+    environment:
+      - OPENCLAW_CONFIG_PATH=/root/.openclaw/openclaw.json
+    restart: unless-stopped
+    networks:
+      - openclaw-redis-shared
+    mem_limit: 2g
+    cpus: 1
+
+  image:
+    image: openclaw-docker_designer:latest
+    container_name: openclaw-image
+    ports:
+      - "18796:18789"
+      - "18803:18803"
+    volumes:
+      - /root/.openclaw/shared-context:/root/.openclaw/shared-context:ro
+      - /root/.openclaw/image/workspace:/root/.openclaw/workspace:rw
+      - /root/.openclaw/image/openclaw.json:/root/.openclaw/openclaw.json:ro
+    environment:
+      - OPENCLAW_CONFIG_PATH=/root/.openclaw/openclaw.json
+    restart: unless-stopped
+    networks:
+      - openclaw-redis-shared
+    mem_limit: 2g
+    cpus: 1
+
+  naming:
+    image: openclaw-docker_healer:latest
+    container_name: openclaw-naming
+    ports:
+      - "18793:18789"
+      - "18804:18804"
+    volumes:
+      - /root/.openclaw/shared-context:/root/.openclaw/shared-context:ro
+      - /root/.openclaw/naming/workspace:/root/.openclaw/workspace:rw
+      - /root/.openclaw/naming/openclaw.json:/root/.openclaw/openclaw.json:ro
+    environment:
+      - OPENCLAW_CONFIG_PATH=/root/.openclaw/openclaw.json
+    restart: unless-stopped
+    networks:
+      - openclaw-redis-shared
+    mem_limit: 2g
+    cpus: 1
+
+networks:
+  openclaw-redis-shared:
+    external: true

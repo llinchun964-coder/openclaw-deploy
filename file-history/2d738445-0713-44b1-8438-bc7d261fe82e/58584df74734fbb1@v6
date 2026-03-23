@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""OpenClaw 监控网页 - 增强版"""
+
+import http.server
+import socketserver
+import subprocess
+import re
+from datetime import datetime
+
+PORT = 18080
+
+def run_cmd(cmd):
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+        return result.stdout.strip()
+    except:
+        return ""
+
+def clean_ansi(text):
+    text = re.sub(r'\x1B\[[0-9;]*[a-zA-Z]', '', text)
+    text = re.sub(r'\x1B[@-Z\\-_]', '', text)
+    return text.strip()
+
+def get_html():
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # Worker 状态
+    workers_html = ""
+    worker_data = [
+        ("技术员", 18811, "👨‍💻", "负责代码开发、调试、重构"),
+        ("运营官", 18813, "📝", "负责内容创作、文案、策划"),
+        ("设计师", 18815, "🎨", "负责图像处理、设计优化"),
+        ("南南", 18817, "🤖", "负责命名、翻译、专业咨询")
+    ]
+
+    all_ok = True
+    for name, port, icon, desc in worker_data:
+        code = run_cmd(f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/.well-known/agent-card.json")
+        latency = run_cmd(f"curl -s -o /dev/null -w '%{{time_total}}' http://127.0.0.1:{port}/.well-known/agent-card.json")
+        ok = code == "200"
+        if not ok:
+            all_ok = False
+        color = "#00ff88" if ok else "#ff4444"
+        status = "✓ 正常" if ok else "✗ 异常"
+        latency_badge = f'<div style="margin-top:8px"><span style="background:rgba(0,255,136,0.1);color:#00ff88;padding:2px 8px;border-radius:4px;font-size:11px">{latency}秒</span></div>' if ok else ""
+        workers_html += f'''
+        <div class="worker-card" style="border-color:{color}">
+            <div class="status-indicator" style="background:{color}"></div>
+            <div style="font-size:42px;margin-bottom:10px">{icon}</div>
+            <div style="font-size:18px;color:#fff;font-weight:bold;margin-bottom:4px">{name}</div>
+            <div style="font-size:12px;color:#888;margin-bottom:12px">{desc}</div>
+            <div style="display:inline-block;padding:6px 20px;border-radius:20px;font-size:13px;font-weight:bold;background:{color}22;color:{color};border:1px solid {color}44">{status}</div>
+            {latency_badge}
+        </div>'''
+
+    # 活动日志
+    logs = clean_ansi(run_cmd("pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -i 'feishu\\\\|dispatch' | tail -5"))
+    activity_html = ""
+    if logs:
+        for log in logs.split('\n'):
+            if log.strip():
+                # 提取时间戳和内容
+                if '[' in log and ']' in log:
+                    time_part = log.split('[')[0].strip()
+                    content = log
+                    activity_html += f'<div class="log-entry"><span class="log-time">{time_part}</span><span class="log-content">{content}</span></div>'
+                else:
+                    activity_html += f'<div class="log-entry">{log}</div>'
+    else:
+        activity_html = '<div style="color:#666;text-align:center;padding:20px">暂无新消息</div>'
+
+    # 系统状态
+    containers = run_cmd("docker ps --filter 'name=openclaw-' --format '{{.Names}}\\t{{.Status}}' | grep -v redis")
+    containers_html = ""
+    if containers:
+        for line in containers.split('\n'):
+            if '\t' in line:
+                cname, cstatus = line.split('\t', 1)
+                cname = cname.replace('openclaw-', '')
+                cstatus = cstatus.split(' ')[0]
+                containers_html += f'<div class="info-row"><span>🐳 {cname}</span><span class="badge badge-ok">{cstatus}</span></div>'
+
+    circuit_check = run_cmd("pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -c 'circuit.open' || echo 0").strip()
+    circuit = "正常" if circuit_check == "0" else "有熔断"
+    circuit_icon = "✓" if circuit_check == "0" else "⚠"
+    circuit_color = "#00ff88" if circuit_check == "0" else "#ff4444"
+
+    tasks = run_cmd("docker exec openclaw-tech ls /root/.openclaw/a2a-tasks/ 2>/dev/null | wc -l") or "0"
+
+    # 内存使用
+    mem_total = run_cmd("free -m | awk 'NR==2{printf \"%.0f\", $2}'") or "0"
+    mem_used = run_cmd("free -m | awk 'NR==2{printf \"%.0f\", $3}'") or "0"
+    mem_percent = int(float(mem_used) / float(mem_total) * 100) if mem_total != "0" else 0
+
+    return f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="5">
+<title>南朝译 AI 监控</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ font-family: -apple-system, "Microsoft YaHei", sans-serif; background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%); color: #fff; padding: 30px; min-height: 100vh; }}
+h1 {{ text-align: center; color: #00d9ff; margin-bottom: 10px; font-size: 28px; text-shadow: 0 0 20px rgba(0, 217, 255, 0.3); }}
+.time {{ text-align: center; color: #888; font-size: 14px; margin-bottom: 30px; }}
+.grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto 30px; }}
+.worker-card {{ background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border-radius: 16px; padding: 25px; text-align: center; border: 2px solid rgba(255, 255, 255, 0.1); position: relative; overflow: hidden; transition: all 0.3s ease; }}
+.worker-card:hover {{ transform: translateY(-5px); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); }}
+.status-indicator {{ position: absolute; top: 0; left: 0; right: 0; height: 3px; }}
+.section {{ max-width: 1000px; margin: 20px auto; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px; border: 1px solid rgba(255, 255, 255, 0.1); }}
+.section h3 {{ color: #00d9ff; font-size: 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }}
+.log {{ font-family: "JetBrains Mono", monospace; font-size: 12px; color: #aaa; line-height: 1.8; }}
+.log-entry {{ padding: 8px 12px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-bottom: 8px; display: flex; gap: 10px; }}
+.log-time {{ color: #666; flex-shrink: 0; }}
+.log-content {{ color: #ccc; word-break: break-all; }}
+.info-row {{ display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: rgba(0, 0, 0, 0.2); border-radius: 10px; margin-bottom: 10px; }}
+.info-row:last-child {{ margin-bottom: 0; }}
+.badge {{ padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }}
+.badge-ok {{ background: rgba(0, 255, 136, 0.2); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.3); }}
+.badge-warn {{ background: rgba(255, 170, 0, 0.2); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.3); }}
+.badge-error {{ background: rgba(255, 68, 68, 0.2); color: #ff4444; border: 1px solid rgba(255, 68, 68, 0.3); }}
+.stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }}
+.stat-card {{ background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 20px; text-align: center; }}
+.stat-value {{ font-size: 32px; font-weight: bold; color: #00d9ff; margin-bottom: 5px; }}
+.stat-label {{ font-size: 13px; color: #888; }}
+.footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 12px; }}
+.status-ok {{ color: #00ff88; }}
+.status-warn {{ color: #ffaa00; }}
+.status-error {{ color: #ff4444; }}
+</style>
+</head>
+<body>
+<h1>🚀 南朝译 AI 员工监控中心</h1>
+<p class="time">更新时间：{now} · 每 5 秒自动刷新</p>
+
+<div class="grid">{workers_html}</div>
+
+<div class="section">
+    <h3><span>📊</span> 系统资源</h3>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" style="color: {'#00ff88' if mem_percent < 70 else '#ffaa00' if mem_percent < 90 else '#ff4444'}">{mem_percent}%</div>
+            <div class="stat-label">内存使用 ({mem_used}/{mem_total} MB)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: #00ff88">{len(containers.split(chr(10))) if containers else 0}/4</div>
+            <div class="stat-label">运行中容器</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: {circuit_color}">{'✓' if circuit_check == '0' else '⚠'}</div>
+            <div class="stat-label">熔断器状态</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: #ffaa00">{tasks}</div>
+            <div class="stat-label">待处理任务</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h3><span>🐳</span> 容器状态</h3>
+    {containers_html if containers_html else '<div style="color:#666;text-align:center;padding:20px">无容器运行</div>'}
+</div>
+
+<div class="section">
+    <h3><span>📝</span> 最近活动</h3>
+    <div class="log">{activity_html}</div>
+</div>
+
+<p class="footer">OpenClaw 监控系统 · Powered by Python</p>
+</body>
+</html>'''
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(get_html().encode('utf-8'))
+    def log_message(self, format, *args):
+        pass
+
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"监控网页已启动：http://0.0.0.0:{PORT}")
+        httpd.serve_forever()

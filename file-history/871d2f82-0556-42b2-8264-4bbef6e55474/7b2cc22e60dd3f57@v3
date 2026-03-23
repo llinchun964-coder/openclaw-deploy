@@ -1,0 +1,276 @@
+/** Docker 容器监控适配器 - 南朝译多实例架构 */
+
+import { execSync } from "node:child_process";
+
+export interface ContainerStatus {
+  name: string;
+  role: string;
+  status: "running" | "stopped" | "lost";
+  port: number;
+  cpu: number;
+  mem: number;
+  uptime: string;
+}
+
+export interface A2AEndpoint {
+  name: string;
+  port: number;
+  ok: boolean;
+  latency: number;
+}
+
+export interface NanchaoyiStaffMember {
+  agentId: string;
+  displayName: string;
+  role: string;
+  status: "working" | "idle" | "lost";
+  port: number;
+  cpu: number;
+  mem: number;
+  uptime: string;
+  a2aOk: boolean;
+  lastActivity?: string;
+}
+
+export interface NanchaoyiMemoryStatus {
+  instance: string;
+  redisKeys: number;
+  sessionFiles: number;
+  lastUpdate?: string;
+}
+
+const WORKER_MAP: Record<string, { name: string; role: string; port: number; agentId: string }> = {
+  tech: { name: "CTO", role: "技术员", port: 18811, agentId: "tech-worker" },
+  ops: { name: "运营官", role: "运营官", port: 18813, agentId: "ops-worker" },
+  image: { name: "设计师", role: "设计师", port: 18815, agentId: "image-worker" },
+  naming: { name: "南南", role: "命名官", port: 18817, agentId: "naming-worker" },
+};
+
+function runCmd(cmd: string): string {
+  try {
+    return execSync(cmd, { encoding: "utf8", timeout: 5000 }).trim();
+  } catch {
+    return "";
+  }
+}
+
+export function getContainerStatuses(): ContainerStatus[] {
+  const statuses: ContainerStatus[] = [];
+
+  // Master (PM2)
+  const pm2Result = runCmd("pm2 list --no-color 2>/dev/null | grep master");
+  if (pm2Result) {
+    const memMatch = pm2Result.match(/(\d+(?:\.\d+)?)\s*mb/i);
+    const cpuMatch = pm2Result.match(/(\d+(?:\.\d+)?)\s*%/);
+    const uptimeMatch = pm2Result.match(/(\d+[mhd])/);
+
+    statuses.push({
+      name: "CEO",
+      role: "master",
+      status: pm2Result.toLowerCase().includes("online") ? "running" : "stopped",
+      port: 18789,
+      cpu: cpuMatch ? parseFloat(cpuMatch[1]) : 0,
+      mem: memMatch ? parseFloat(memMatch[1]) : 0,
+      uptime: uptimeMatch ? uptimeMatch[1] : "0m",
+    });
+  }
+
+  // Worker 容器
+  for (const [workerId, info] of Object.entries(WORKER_MAP)) {
+    const status = runCmd(`docker ps --filter 'name=openclaw-${workerId}' --format '{{.Status}}'`);
+    const stats = runCmd(`docker stats --no-stream --format '{{.CPUPerc}}\t{{.MemUsage}}' openclaw-${workerId}`);
+
+    const isUp = status.includes("Up");
+    let cpu = 0;
+    let mem = 0;
+
+    if (stats) {
+      const parts = stats.split("\t");
+      if (parts.length >= 2) {
+        cpu = parseFloat(parts[0].replace("%", "")) || 0;
+        const memVal = parts[1].split("/")[0].trim().replace("MiB", "").replace("GiB", "");
+        mem = parseFloat(memVal) || 0;
+      }
+    }
+
+    statuses.push({
+      name: info.name,
+      role: info.role,
+      status: isUp ? "running" : "stopped",
+      port: info.port,
+      cpu,
+      mem,
+      uptime: extractUptime(status) || "未知",
+    });
+  }
+
+  // Redis
+  const redisStatus = runCmd("docker ps --filter 'name=redis' --format '{{.Status}}'");
+  statuses.push({
+    name: "Redis",
+    role: "记忆池",
+    status: redisStatus.includes("Up") ? "running" : "stopped",
+    port: 16379,
+    cpu: 0,
+    mem: 0,
+    uptime: extractUptime(redisStatus) || "未知",
+  });
+
+  return statuses;
+}
+
+export function getA2AEndpoints(): A2AEndpoint[] {
+  const endpoints: A2AEndpoint[] = [];
+
+  for (const [workerId, info] of Object.entries(WORKER_MAP)) {
+    const start = Date.now();
+    const code = runCmd(`curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 http://127.0.0.1:${info.port}/.well-known/agent-card.json`);
+    const latency = Date.now() - start;
+
+    endpoints.push({
+      name: info.name,
+      port: info.port,
+      ok: code === "200",
+      latency,
+    });
+  }
+
+  // Master A2A
+  const masterStart = Date.now();
+  const masterCode = runCmd(`curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 http://127.0.0.1:18800/.well-known/agent-card.json`);
+  endpoints.unshift({
+    name: "Master",
+    port: 18800,
+    ok: masterCode === "200",
+    latency: Date.now() - masterStart,
+  });
+
+  return endpoints;
+}
+
+function extractUptime(status: string): string | null {
+  if (!status.includes("Up")) return null;
+  const match = status.match(/Up\s*(.+?)(?:\s*\(.*\))?$/);
+  return match ? match[1].trim() : null;
+}
+
+export function getCollaborationLog(): Array<{ time: string; direction: string; summary: string }> {
+  const logs = runCmd("pm2 logs master-nanchaoyi --lines 100 --nostream 2>&1 | grep -E 'A2A|peer|dispatch|task' | tail -20");
+  const collaborations: Array<{ time: string; direction: string; summary: string }> = [];
+
+  if (logs) {
+    for (const line of logs.split("\n").filter(Boolean)) {
+      const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "").trim();
+      if (!cleanLine) continue;
+
+      let direction = "unknown";
+      if (cleanLine.toLowerCase().includes("dispatch")) {
+        direction = "main→worker";
+      } else if (cleanLine.toLowerCase().includes("peer") || cleanLine.toLowerCase().includes("a2a")) {
+        direction = "worker→worker";
+      }
+
+      const timeMatch = cleanLine.match(/(\d{2}:\d{2}:\d{2})/);
+      const time = timeMatch ? timeMatch[1] : "";
+      const summary = cleanLine.length > 60 ? cleanLine.slice(60) : cleanLine;
+
+      collaborations.push({ time, direction, summary });
+    }
+  }
+
+  return collaborations;
+}
+
+/** 获取南朝译 Worker 员工作业列表 - 用于整合到员工页面 */
+export function getNanchaoyiStaffMembers(): NanchaoyiStaffMember[] {
+  const members: NanchaoyiStaffMember[] = [];
+
+  for (const [workerId, info] of Object.entries(WORKER_MAP)) {
+    const status = runCmd(`docker ps --filter 'name=openclaw-${workerId}' --format '{{.Status}}'`);
+    const stats = runCmd(`docker stats --no-stream --format '{{.CPUPerc}}\t{{.MemUsage}}' openclaw-${workerId}`);
+
+    const isUp = status.includes("Up");
+    let cpu = 0;
+    let mem = 0;
+
+    if (stats) {
+      const parts = stats.split("\t");
+      if (parts.length >= 2) {
+        cpu = parseFloat(parts[0].replace("%", "")) || 0;
+        const memVal = parts[1].split("/")[0].trim().replace("MiB", "").replace("GiB", "");
+        mem = parseFloat(memVal) || 0;
+      }
+    }
+
+    // 检查 A2A 端点
+    const a2aStart = Date.now();
+    const a2aCode = runCmd(`curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 http://127.0.0.1:${info.port}/.well-known/agent-card.json`);
+    const a2aOk = a2aCode === "200";
+
+    // 获取最后活动时间（从 PM2 日志）
+    let lastActivity: string | undefined;
+    const logs = runCmd(`pm2 logs master-nanchaoyi --lines 50 --nostream 2>&1 | grep -E '${info.role}|${info.name}' | tail -1`);
+    if (logs) {
+      const timeMatch = logs.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+      if (timeMatch) {
+        lastActivity = timeMatch[1];
+      }
+    }
+
+    members.push({
+      agentId: info.agentId,
+      displayName: info.name,
+      role: info.role,
+      status: isUp ? (a2aOk ? "working" : "idle") : "lost",
+      port: info.port,
+      cpu,
+      mem,
+      uptime: extractUptime(status) || "未知",
+      a2aOk,
+      lastActivity,
+    });
+  }
+
+  return members;
+}
+
+/** 获取记忆状态 - 用于整合到记忆页面 */
+export function getNanchaoyiMemoryStatus(): NanchaoyiMemoryStatus[] {
+  const statuses: NanchaoyiMemoryStatus[] = [];
+
+  // Redis 记忆池状态
+  const redisPing = runCmd("redis-cli -p 16379 ping");
+  const redisKeysResult = runCmd("redis-cli -p 16379 dbsize");
+  const redisKeys = parseInt(redisKeysResult) || 0;
+
+  statuses.push({
+    instance: "Redis 记忆池",
+    redisKeys,
+    sessionFiles: 0,
+    lastUpdate: redisPing === "PONG" ? new Date().toISOString() : undefined,
+  });
+
+  // Workspace memory 文件
+  const memoryFileCount = runCmd("ls /root/.openclaw/workspace/memory/*.md 2>/dev/null | wc -l");
+  statuses.push({
+    instance: "Workspace 记忆",
+    redisKeys: 0,
+    sessionFiles: parseInt(memoryFileCount) || 0,
+    lastUpdate: undefined,
+  });
+
+  // 各 Worker 的会话文件
+  for (const [workerId, info] of Object.entries(WORKER_MAP)) {
+    const sessionPath = `/root/.openclaw/workspace/sessions`;
+    const sessionCount = runCmd(`find ${sessionPath} -name '*${workerId}*' 2>/dev/null | wc -l`);
+
+    statuses.push({
+      instance: info.name,
+      redisKeys: 0,
+      sessionFiles: parseInt(sessionCount) || 0,
+      lastUpdate: undefined,
+    });
+  }
+
+  return statuses;
+}

@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""
+OpenClaw 简易监控网页
+访问：http://服务器 IP:18080
+"""
+
+import http.server
+import socketserver
+import json
+import subprocess
+import re
+from datetime import datetime
+
+PORT = 18080
+
+HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>南朝译 AI 员工监控</title>
+    <meta http-equiv="refresh" content="5">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #00d9ff;
+            font-size: 24px;
+        }
+        .time {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 25px 20px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .card.ok { border-color: #00ff88; box-shadow: 0 0 20px rgba(0,255,136,0.3); }
+        .card.error { border-color: #ff4444; box-shadow: 0 0 20px rgba(255,68,68,0.3); }
+        .icon { font-size: 40px; margin-bottom: 10px; }
+        .name { font-size: 18px; margin-bottom: 10px; color: #ccc; }
+        .status {
+            font-size: 20px;
+            font-weight: bold;
+            padding: 5px 20px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+        .status-ok { background: #00ff8833; color: #00ff88; }
+        .status-error { background: #ff444433; color: #ff4444; }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 12px;
+        }
+        .section {
+            max-width: 800px;
+            margin: 20px auto;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .section h3 { color: #00d9ff; margin-bottom: 10px; font-size: 16px; }
+        .log { font-family: monospace; font-size: 12px; color: #888; line-height: 1.8; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <h1>📊 南朝译 AI 员工监控</h1>
+    <p class="time" id="time">加载中...</p>
+
+    <div class="grid" id="workers"></div>
+
+    <div class="section">
+        <h3>📝 最近活动</h3>
+        <div class="log" id="activity">加载中...</div>
+    </div>
+
+    <div class="section">
+        <h3>⚡ 系统状态</h3>
+        <div class="log" id="system">加载中...</div>
+    </div>
+
+    <p class="footer">每 5 秒自动刷新</p>
+
+    <script>
+        fetch('/api')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('time').textContent = '更新时间：' + new Date().toLocaleString('zh-CN');
+
+                // 渲染员工卡片
+                const workers = document.getElementById('workers');
+                workers.innerHTML = data.workers.map(w => `
+                    <div class="card ${w.ok ? 'ok' : 'error'}">
+                        <div class="icon">${w.icon}</div>
+                        <div class="name">${w.name}</div>
+                        <div class="status ${w.ok ? 'status-ok' : 'status-error'}">
+                            ${w.ok ? '✓ 正常' : '✗ 异常'}
+                        </div>
+                        ${w.ok ? `<div style="margin-top:8px;font-size:12px;color:#666">${w.latency}秒</div>` : ''}
+                    </div>
+                `).join('');
+
+                // 渲染活动日志
+                document.getElementById('activity').innerHTML = data.activity.map(a =>
+                    `<div>${a}</div>`
+                ).join('');
+
+                // 渲染系统状态
+                document.getElementById('system').innerHTML = data.system;
+            })
+            .catch(e => {
+                document.getElementById('workers').innerHTML = '<p style="text-align:center;color:#ff4444">加载失败</p>';
+            });
+    </script>
+</body>
+</html>
+"""
+
+def run_cmd(cmd):
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+        return result.stdout.strip()
+    except:
+        return ""
+
+def clean_ansi(text):
+    """清除 ANSI 颜色代码"""
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
+
+def get_workers():
+    workers = [
+        ("技术员", 18811, "👨‍💻"),
+        ("运营官", 18813, "📝"),
+        ("设计师", 18815, "🎨"),
+        ("南南", 18817, "🤖"),
+    ]
+    result = []
+    for name, port, icon in workers:
+        http_code = run_cmd(f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/.well-known/agent-card.json 2>/dev/null")
+        latency = run_cmd(f"curl -s -o /dev/null -w '%{{time_total}}' http://127.0.0.1:{port}/.well-known/agent-card.json 2>/dev/null")
+        ok = http_code == "200"
+        result.append({"name": name, "ok": ok, "latency": latency if latency else "0", "icon": icon})
+    return result
+
+def get_activity():
+    logs = run_cmd("pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -E 'dispatch|Feishu'")
+    logs = clean_ansi(logs)
+    return [l.strip() for l in logs.split('\n') if l.strip()][-5:]
+
+def get_system():
+    containers = run_cmd("docker ps --filter 'name=openclaw-' --format '{{.Names}}: {{.Status}}' | grep -v redis")
+    circuit_check = run_cmd("pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -c 'circuit.open' || echo 0")
+    circuit = "正常" if circuit_check.strip() == "0" else "有熔断"
+    tasks = run_cmd("for w in tech ops image naming; do docker exec openclaw-$w ls /root/.openclaw/a2a-tasks/ 2>/dev/null | wc -l | tr '\\n' ' '; done")
+    if not tasks.strip():
+        tasks = "0 0 0 0"
+
+    circuit_html = f'<span style="color:#ff4444">⚠ 有熔断</span>' if circuit != "正常" else '<span style="color:#00ff88">✓ 正常</span>'
+
+    return f"""
+    <div>🐳 容器：{containers.replace(chr(10), '<br>')}</div>
+    <div style="margin-top:8px">⚡ 熔断器：{circuit_html}</div>
+    <div style="margin-top:8px">📋 任务队列：{tasks}</div>
+    """
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/api':
+            data = {
+                "workers": get_workers(),
+                "activity": get_activity(),
+                "system": get_system()
+            }
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+        elif self.path == '/' or self.path == '/index.html':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(HTML.encode('utf-8'))
+        else:
+            super().do_GET()
+
+    def log_message(self, format, *args):
+        pass  # 禁用日志输出
+
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"📊 监控网页已启动：http://0.0.0.0:{PORT}")
+        print(f"本地访问：http://localhost:{PORT}")
+        print(f"远程访问：http://服务器 IP:{PORT}")
+        httpd.serve_forever()

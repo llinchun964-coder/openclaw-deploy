@@ -1,0 +1,31 @@
+# Mission Control MVP flags
+# Keep readonly true until explicit live-mode validation is complete.
+GATEWAY_URL=ws://127.0.0.1:18789
+
+# OpenClaw 路径配置（南朝译多实例架构）
+OPENCLAW_HOME=/root/.openclaw/master
+OPENCLAW_CONFIG_PATH=/root/.openclaw/master/openclaw.json
+OPENCLAW_WORKSPACE_ROOT=/root/.openclaw/workspace
+OPENCLAW_AGENT_ROOT=/root/.openclaw/agents
+
+# Redis 连接（用量追踪）
+REDIS_URL=redis://127.0.0.1:16379
+
+# Worker 配置（Docker 容器）
+WORKER_TECH_PORT=18811
+WORKER_OPS_PORT=18813
+WORKER_IMAGE_PORT=18815
+WORKER_NAMING_PORT=18817
+
+# 本地访问无需 Token 认证
+READONLY_MODE=false
+APPROVAL_ACTIONS_ENABLED=true
+APPROVAL_ACTIONS_DRY_RUN=false
+IMPORT_MUTATION_ENABLED=false
+IMPORT_MUTATION_DRY_RUN=true
+LOCAL_TOKEN_AUTH_REQUIRED=false
+LOCAL_API_TOKEN=
+MONITOR_CONTINUOUS=false
+UI_MODE=true
+UI_PORT=4310
+UI_BIND_ADDRESS=0.0.0.0

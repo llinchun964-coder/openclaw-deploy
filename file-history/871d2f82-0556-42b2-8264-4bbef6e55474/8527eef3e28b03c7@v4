@@ -1,0 +1,11 @@
+# MEMORY.md
+
+## User
+
+- [agent_model_preference](user_agent_model.md) — 主会话用 Claude 3.5 Sonnet，子 Agent 可指定 Haiku 4.5 模型
+
+## Feedback
+
+- [monitor_webpage_bugfix](feedback_monitor_fix.md) — 监控网页 web-monitor.py 的 deque 切片 bug 修复方案
+- [monitor_task_management](feedback_monitor_task.md) — 监控网页任务管理功能添加
+- [control_center_integration](feedback_control_center_integration.md) — Control Center 集成南朝译多实例监控方案

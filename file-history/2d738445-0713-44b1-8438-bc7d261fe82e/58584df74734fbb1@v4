@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""OpenClaw 监控网页 - http://服务器 IP:18080"""
+
+import http.server
+import socketserver
+import json
+import subprocess
+import re
+
+PORT = 18080
+
+def run_cmd(cmd):
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+        return result.stdout.strip()
+    except:
+        return ""
+
+def clean_ansi(text):
+    """清除 ANSI 颜色代码和特殊字符"""
+    # 清除 ESC 序列
+    text = re.sub(r'\x1B\[[0-9;]*[a-zA-Z]', '', text)
+    text = re.sub(r'\x1B\([0-9;]*[a-zA-Z]', '', text)
+    text = re.sub(r'\x1B[@-Z\\-_]', '', text)
+    # 清除其他不可见字符
+    text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F]', '', text)
+    return text.strip()
+
+def get_status():
+    # Worker 状态
+    workers = []
+    for name, port, icon in [("技术员", 18811, "👨‍💻"), ("运营官", 18813, "📝"), ("设计师", 18815, "🎨"), ("南南", 18817, "🤖")]:
+        code = run_cmd(f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/.well-known/agent-card.json")
+        latency = run_cmd(f"curl -s -o /dev/null -w '%{{time_total}}' http://127.0.0.1:{port}/.well-known/agent-card.json")
+        workers.append({"name": name, "ok": code == "200", "latency": latency or "0", "icon": icon})
+
+    # 活动日志
+    logs = clean_ansi(run_cmd("pm2 logs master-nanchaoyi --lines 3 --nostream 2>&1 | grep -i 'feishu\\|dispatch' | tail -3"))
+    activity = [l for l in logs.split('\n') if l.strip()][-3:]
+
+    # 系统状态
+    containers = run_cmd("docker ps --filter 'name=openclaw-' --format '{{.Names}}' | grep -v redis | tr '\\n' ',' ").replace(',', ', ')
+    circuit = "正常" if run_cmd("pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -c 'circuit.open' || echo 0").strip() == "0" else "有熔断"
+    tasks = run_cmd("docker exec openclaw-tech ls /root/.openclaw/a2a-tasks/ 2>/dev/null | wc -l")
+
+    return {
+        "workers": workers,
+        "activity": activity,
+        "containers": containers or "无",
+        "circuit": circuit,
+        "tasks": tasks or "0"
+    }
+
+HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>南朝译 AI 监控</title>
+<meta http-equiv="refresh" content="5">
+<style>
+body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:#1a1a2e;color:#fff;padding:20px;margin:0}
+h1{text-align:center;color:#00d9ff;margin-bottom:10px;font-size:22px}
+.time{text-align:center;color:#888;font-size:13px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;max-width:700px;margin:0 auto 20px}
+.card{background:rgba(255,255,255,0.05);border-radius:12px;padding:20px;text-align:center;border:2px solid #00ff88}
+.card.error{border-color:#ff4444}
+.icon{font-size:36px;margin-bottom:8px}
+.name{font-size:16px;color:#ccc;margin-bottom:8px}
+.status{display:inline-block;padding:4px 16px;border-radius:20px;font-size:14px;font-weight:bold}
+.status-ok{background:#00ff8833;color:#00ff88}
+.status-error{background:#ff444433;color:#ff4444}
+.section{max-width:700px;margin:15px auto;background:rgba(255,255,255,0.05);border-radius:10px;padding:15px}
+.section h3{color:#00d9ff;font-size:15px;margin-bottom:10px}
+.log{font-family:monospace;font-size:12px;color:#aaa;line-height:1.6;word-break:break-all}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1)}
+.info-row:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<h1>📊 南朝译 AI 员工监控</h1>
+<p class="time" id="time">加载中...</p>
+<div class="grid" id="grid"></div>
+<div class="section"><h3>📝 最近活动</h3><div class="log" id="activity">无</div></div>
+<div class="section"><h3>⚡ 系统状态</h3><div id="system">加载中...</div></div>
+<script>
+fetch('/api').then(r=>r.json()).then(d=>{
+    document.getElementById('time').textContent='更新时间：'+new Date().toLocaleString('zh-CN');
+    document.getElementById('grid').innerHTML=d.workers.map(w=>
+        '<div class="card '+(w.ok?'':'error')+'"><div class="icon">'+w.icon+'</div><div class="name">'+w.name+'</div><div class="status '+(w.ok?'status-ok':'status-error')+'">'+(w.ok?'✓ 正常':'✗ 异常')+'</div>'+(w.ok?'<div style="margin-top:6px;font-size:12px;color:#666">'+w.latency+'秒</div>':'')+'</div>'
+    ).join('');
+    document.getElementById('activity').innerHTML=d.activity.length?d.activity.map(a=>'<div>'+a+'</div>').join(''):'无新消息';
+    document.getElementById('system').innerHTML='<div class="info-row"><span>🐳 容器</span><span>'+d.containers+'</span></div><div class="info-row"><span>⚡ 熔断器</span><span style="color:'+(d.circuit=='正常'?'#00ff88':'#ff4444')+'">'+(d.circuit=='正常'?'✓ 正常':'⚠ 有熔断')+'</span></div><div class="info-row"><span>📋 任务队列</span><span>'+d.tasks+'</span></div>';
+}).catch(e=>{document.getElementById('grid').innerHTML='<p style="text-align:center;color:#ff4444">加载失败</p>';});
+</script>
+</body>
+</html>
+"""
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/api':
+            data = get_status()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(json.dumps(data, ensure_ascii=False).encode())
+        else:
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(HTML.encode('utf-8'))
+    def log_message(self, format, *args):
+        pass
+
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"监控网页已启动：http://0.0.0.0:{PORT}")
+        httpd.serve_forever()

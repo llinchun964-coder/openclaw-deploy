@@ -1,0 +1,187 @@
+{
+  "$schema": "https://openclaw.ai/schema/config.json",
+  "meta": {
+    "lastTouchedVersion": "2026.3.13"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "aliyun": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "sk-sp-e6083128df284ca3b4fdbe6d987d576c",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 30000
+          }
+        ]
+      },
+      "volc": {
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+        "apiKey": "8c22373b-404a-4f89-8ac0-50992681d1f3",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "doubao-seed-2.0-code",
+            "name": "doubao-seed-2.0-code",
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 30000
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "volc/doubao-seed-2.0-code",
+        "fallbacks": [
+          "aliyun/qwen3.5-plus"
+        ]
+      }
+    }
+  },
+  "tools": {
+    "profile": "full",
+    "sessions": {
+      "visibility": "all"
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "feishu",
+        "accountId": "coo-bot"
+      }
+    }
+  ],
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "connectionMode": "websocket",
+      "domain": "feishu",
+      "defaultAccount": "coo-bot",
+      "accounts": {
+        "coo-bot": {
+          "enabled": true,
+          "appId": "cli_a9269e44a8b9dcef",
+          "appSecret": "M2iO2Z7Oi0qtBdhcdwkebhGIcqY0lIYa"
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "*",
+        "http://localhost",
+        "http://127.0.0.1:1420",
+        "http://198.200.39.21:1420"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "7cee06809791a214460189230f0cfbe7b851bf95bbf4ddb0"
+    }
+  },
+  "plugins": {
+    "allow": [
+      "a2a-gateway",
+      "feishu"
+    ],
+    "load": {
+      "paths": [
+        "/root/.openclaw/workspace/plugins/a2a-gateway"
+      ]
+    },
+    "entries": {
+      "feishu": {
+        "enabled": true
+      },
+      "a2a-gateway": {
+        "enabled": true,
+        "config": {
+          "agentCard": {
+            "name": "SEO-Master",
+            "description": "南朝译SEO主管",
+            "url": "http://172.19.0.1:18800/a2a/jsonrpc",
+            "skills": [
+              {
+                "id": "chat",
+                "name": "chat",
+                "description": "南朝译SEO主管"
+              }
+            ]
+          },
+          "server": {
+            "host": "0.0.0.0",
+            "port": 18800
+          },
+          "security": {
+            "inboundAuth": "bearer",
+            "token": "13ee86891304d966456def36705ed344"
+          },
+          "routing": {
+            "defaultAgentId": "main"
+          },
+          "peers": [
+            {
+              "name": "技术员",
+              "agentCardUrl": "http://172.19.0.1:18811/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "13ee86891304d966456def36705ed344"
+              }
+            },
+            {
+              "name": "运营官",
+              "agentCardUrl": "http://172.19.0.1:18802/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "13ee86891304d966456def36705ed344"
+              }
+            },
+            {
+              "name": "设计师",
+              "agentCardUrl": "http://172.19.0.1:18803/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "13ee86891304d966456def36705ed344"
+              }
+            },
+            {
+              "name": "南南",
+              "agentCardUrl": "http://172.19.0.1:18804/.well-known/agent-card.json",
+              "auth": {
+                "type": "bearer",
+                "token": "13ee86891304d966456def36705ed344"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

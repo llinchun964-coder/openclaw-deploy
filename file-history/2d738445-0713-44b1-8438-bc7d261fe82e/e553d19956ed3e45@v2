@@ -1,0 +1,41 @@
+#!/bin/bash
+# OpenClaw 健康检查脚本 - 每分钟运行一次
+# 结果写入日志文件
+
+LOG_FILE="/root/.openclaw/logs/health-check.log"
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+# 检查所有 A2A 端点
+check_all() {
+    local status="OK"
+
+    # Master
+    if ! curl -s "http://127.0.0.1:18800/.well-known/agent-card.json" > /dev/null 2>&1; then
+        status="MASTER_DOWN"
+    fi
+
+    # Workers
+    for port in 18811 18813 18815 18817; do
+        if ! curl -s "http://127.0.0.1:$port/.well-known/agent-card.json" > /dev/null 2>&1; then
+            status="WORKER_DOWN"
+        fi
+    done
+
+    # 检查熔断器
+    circuit_open=$(pm2 logs master-nanchaoyi --lines 5 --nostream 2>&1 | grep -c "circuit.open" || echo "0")
+    if [ "$circuit_open" -gt 0 ]; then
+        status="CIRCUIT_OPEN"
+    fi
+
+    echo "$TIMESTAMP - $status" >> "$LOG_FILE"
+
+    # 如果异常，发送告警（可扩展为飞书通知）
+    if [ "$status" != "OK" ]; then
+        echo "[$TIMESTAMP] ⚠️ OpenClaw 异常：$status" >> "$LOG_FILE"
+    fi
+}
+
+# 保持日志文件大小
+tail -100 "$LOG_FILE" > "${LOG_FILE}.tmp" 2>/dev/null && mv "${LOG_FILE}.tmp" "$LOG_FILE" 2>/dev/null
+
+check_all

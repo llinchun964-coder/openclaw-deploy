@@ -1,0 +1,848 @@
+#!/usr/bin/env python3
+"""OpenClaw 监控网页 - 企业版（容器状态 + 异常告警）"""
+
+import http.server
+import socketserver
+import subprocess
+import re
+import json
+import os
+from datetime import datetime
+from collections import deque
+
+PORT = 18080
+HISTORY_FILE = "/root/.openclaw/logs/monitor-history.json"
+ALERTS_FILE = "/root/.openclaw/logs/alerts.json"
+TASKS_FILE = "/root/.openclaw/logs/task-history.json"
+
+history = deque(maxlen=120)
+alerts = deque(maxlen=50)
+task_history = deque(maxlen=200)  # 任务历史
+
+def load_data():
+    global history, alerts, task_history
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, 'r') as f:
+                history = deque(json.load(f)[-120:], maxlen=120)
+    except:
+        pass
+    try:
+        if os.path.exists(ALERTS_FILE):
+            with open(ALERTS_FILE, 'r') as f:
+                alerts = deque(json.load(f)[-50:], maxlen=50)
+    except:
+        pass
+    try:
+        if os.path.exists(TASKS_FILE):
+            with open(TASKS_FILE, 'r') as f:
+                task_history = deque(json.load(f)[-200:], maxlen=200)
+    except:
+        pass
+
+def save_data():
+    try:
+        os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(list(history), f)
+        with open(ALERTS_FILE, 'w') as f:
+            json.dump(list(alerts), f)
+        with open(TASKS_FILE, 'w') as f:
+            json.dump(list(task_history), f)
+    except:
+        pass
+
+load_data()
+
+def run_cmd(cmd):
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+        return result.stdout.strip()
+    except:
+        return ""
+
+def clean_ansi(text):
+    text = re.sub(r'\x1B\[[0-9;]*[a-zA-Z]', '', text)
+    text = re.sub(r'\x1B[@-Z\\-_]', '', text)
+    return text.strip()
+
+def html_escape(text):
+    if not text:
+        return ""
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+def parse_uptime(status):
+    """从容器状态解析运行时长"""
+    if 'Up' not in status:
+        return None
+    match = re.search(r'Up\s*(.+?)(?:\s*\(.*\))?$', status)
+    if match:
+        return match.group(1).strip()
+    return None
+
+def get_all_containers():
+    """获取所有容器详细信息"""
+    containers = []
+
+    # Master (PM2)
+    pm2_result = run_cmd("pm2 list --no-color 2>/dev/null | grep master")
+    if pm2_result:
+        # 解析 PM2 表格格式，提取有效数据
+        mem = "0"
+        cpu = "0"
+        uptime = "0m"
+        status_raw = "online"
+
+        # 尝试提取数字值
+        mem_match = re.search(r'(\d+(?:\.\d+)?)\s*mb', pm2_result, re.IGNORECASE)
+        cpu_match = re.search(r'(\d+(?:\.\d+)?)\s*%', pm2_result)
+        uptime_match = re.search(r'(\d+[mhd])', pm2_result)
+
+        if mem_match:
+            mem = mem_match.group(1)
+        if cpu_match:
+            cpu = cpu_match.group(1)
+        if uptime_match:
+            uptime = uptime_match.group(1)
+        if 'online' in pm2_result.lower():
+            status_raw = "online"
+        else:
+            status_raw = "stopped"
+
+        containers.append({
+            "name": "CEO",
+            "role": "master",
+            "status": "running" if "online" in status_raw.lower() else "stopped",
+            "uptime": uptime,
+            "cpu": float(cpu) if cpu else 0,
+            "mem": float(mem) if mem else 0,
+            "mem_unit": "MB",
+            "is_pm2": True
+        })
+
+    # Worker 容器
+    worker_map = {
+        "tech": {"name": "CTO", "role": "技术员", "port": 18811},
+        "ops": {"name": "运营官", "role": "运营官", "port": 18813},
+        "image": {"name": "设计师", "role": "设计师", "port": 18815},
+        "naming": {"name": "顾问", "role": "南南", "port": 18817}
+    }
+
+    result = run_cmd("docker ps --filter 'name=openclaw-' --format '{{.Names}}\\t{{.Status}}' | grep -v redis")
+    stats_result = run_cmd("docker stats --no-stream --format '{{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}' 2>/dev/null | grep openclaw")
+
+    stats_dict = {}
+    if stats_result:
+        for line in stats_result.split('\n'):
+            parts = line.split('\t')
+            if len(parts) >= 3:
+                cname = parts[0].replace('openclaw-', '')
+                cpu = parts[1].rstrip('%')
+                mem_usage = parts[2]
+                mem_val = mem_usage.split('/')[0].strip().replace('MiB', '').replace('GiB', '')
+                mem_unit = 'MiB' if 'MiB' in mem_usage else 'GiB'
+                try:
+                    stats_dict[cname] = {"cpu": float(cpu) if cpu else 0, "mem": float(mem_val) if mem_val else 0, "mem_unit": mem_unit}
+                except:
+                    stats_dict[cname] = {"cpu": 0, "mem": 0, "mem_unit": mem_unit}
+
+    if result:
+        for line in result.split('\n'):
+            parts = line.split('\t')
+            if len(parts) >= 2:
+                cname = parts[0].replace('openclaw-', '')
+                status = parts[1]
+                uptime = parse_uptime(status)
+
+                info = worker_map.get(cname, {"name": cname, "role": cname, "port": 0})
+                stats = stats_dict.get(cname, {"cpu": 0, "mem": 0, "mem_unit": "MiB"})
+
+                # 检查 A2A 端点
+                port = info.get("port", 0)
+                a2a_ok = False
+                last_msg_time = None
+                if port:
+                    code = run_cmd(f"curl -s -o /dev/null -w '%{{http_code}}' --connect-timeout 2 http://127.0.0.1:{port}/.well-known/agent-card.json")
+                    a2a_ok = code == "200"
+
+                    # 获取最后飞书消息时间
+                    role = info["role"]
+                    logs = run_cmd(f"pm2 logs master-nanchaoyi --lines 50 --nostream 2>&1 | grep -E 'feishu.*{role}' | tail -1")
+                    if logs:
+                        time_match = re.search(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})', logs)
+                        if time_match:
+                            last_msg_time = time_match.group(1)
+
+                containers.append({
+                    "name": info["name"],
+                    "role": info["role"],
+                    "status": "running" if "Up" in status else "stopped",
+                    "a2a_status": "online" if a2a_ok else "offline",
+                    "uptime": uptime or "未知",
+                    "cpu": stats["cpu"],
+                    "mem": stats["mem"],
+                    "mem_unit": stats["mem_unit"],
+                    "last_msg": last_msg_time,
+                    "port": port
+                })
+
+    # Redis 容器
+    redis_result = run_cmd("docker ps --filter 'name=redis' --format '{{.Names}}\\t{{.Status}}'")
+    if redis_result:
+        parts = redis_result.split('\t')
+        status = parts[1] if len(parts) > 1 else ""
+        redis_stats = run_cmd("docker stats --no-stream --format '{{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}' 2>/dev/null | grep redis")
+        cpu, mem, mem_unit = 0, 0, "MiB"
+        if redis_stats:
+            rparts = redis_stats.split('\t')
+            if len(rparts) >= 3:
+                cpu = float(rparts[1].rstrip('%')) if rparts[1] else 0
+                mem_val = rparts[2].split('/')[0].strip().replace('MiB', '').replace('KiB', '')
+                mem = float(mem_val) if mem_val else 0
+                mem_unit = 'MiB' if 'MiB' in rparts[2] else 'KiB'
+
+        containers.append({
+            "name": "Redis",
+            "role": "记忆池",
+            "status": "running" if "Up" in status else "stopped",
+            "uptime": parse_uptime(status) or "未知",
+            "cpu": cpu,
+            "mem": mem,
+            "mem_unit": mem_unit,
+            "is_redis": True
+        })
+
+    return containers
+
+def check_alerts(containers):
+    """检查并生成告警"""
+    new_alerts = []
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    for c in containers:
+        # CPU 过高
+        if c.get("cpu", 0) > 80:
+            new_alerts.append({"time": now, "type": "cpu", "level": "warning", "msg": f"{c['name']} CPU 占用过高 ({c['cpu']}%)"})
+
+        # 内存过高
+        if c.get("mem", 0) > 1500:
+            new_alerts.append({"time": now, "type": "mem", "level": "warning", "msg": f"{c['name']} 内存占用过高 ({c['mem']}{c.get('mem_unit', 'MB')})"})
+
+        # A2A 离线
+        if c.get("a2a_status") == "offline" and c.get("port"):
+            new_alerts.append({"time": now, "type": "a2a", "level": "error", "msg": f"{c['name']} A2A 端点无响应 (端口{c['port']})"})
+
+        # 检查失联（最后消息超过 5 分钟）
+        if c.get("last_msg"):
+            try:
+                msg_time = datetime.strptime(c["last_msg"], '%Y-%m-%dT%H:%M:%S')
+                diff = (datetime.now() - msg_time).seconds
+                if diff > 300:  # 5 分钟
+                    new_alerts.append({"time": now, "type": "silent", "level": "warning", "msg": f"{c['name']} 超过 5 分钟未发送飞书消息"})
+            except:
+                pass
+
+    # 磁盘检查
+    disk_result = run_cmd("df -h / | awk 'NR==2{print $5}' | tr -d '%'")
+    if disk_result:
+        try:
+            disk_percent = int(disk_result)
+            if disk_percent > 80:
+                new_alerts.append({"time": now, "type": "disk", "level": "error", "msg": f"磁盘空间不足 (已用{disk_percent}%)"})
+        except:
+            pass
+
+    # 添加新告警
+    for alert in new_alerts:
+        # 避免重复
+        if not any(a["msg"] == alert["msg"] and a["type"] == alert["type"] for a in alerts):
+            alerts.append(alert)
+
+    save_data()
+    return new_alerts
+
+def get_recent_logs():
+    """获取最近日志"""
+    logs = []
+    result = run_cmd("pm2 logs master-nanchaoyi --lines 30 --nostream 2>&1 | grep -E 'feishu|dispatch|circuit|error|Error|timeout' | tail -30")
+    if result:
+        for line in result.split('\n'):
+            line = clean_ansi(line).strip()
+            if line:
+                logs.append(html_escape(line))
+    return logs
+
+def get_recent_alerts():
+    """获取最近告警"""
+    return list(alerts)[-20:]
+
+def get_worker_tasks():
+    """获取所有 Worker 的任务状态"""
+    workers = {
+        "tech": {"name": "CTO", "role": "技术员"},
+        "ops": {"name": "运营官", "role": "运营官"},
+        "image": {"name": "设计师", "role": "设计师"},
+        "naming": {"name": "南南", "role": "命名官"}
+    }
+    tasks = []
+    for worker_id, info in workers.items():
+        # 检查容器内是否有任务目录
+        task_count = run_cmd(f"docker exec openclaw-{worker_id} bash -c 'ls /root/.openclaw/a2a-tasks/pending/ 2>/dev/null | wc -l'").strip()
+        pending_count = int(task_count) if task_count.isdigit() else 0
+
+        # 获取 PM2 日志中最近的任务相关消息
+        logs = run_cmd(f"pm2 logs master-nanchaoyi --lines 50 --nostream 2>&1 | grep -i 'dispatch.*{worker_id}' | tail -3")
+        last_task = None
+        if logs:
+            log_lines = logs.strip().split('\n')
+            if log_lines:
+                last_log = clean_ansi(log_lines[-1])
+                time_match = re.search(r'(\d{2}:\d{2}:\d{2})', last_log)
+                last_task = {
+                    "time": time_match.group(1) if time_match else "",
+                    "summary": last_log[50:] if len(last_log) > 50 else last_log
+                }
+
+        tasks.append({
+            "id": worker_id,
+            "name": info["name"],
+            "role": info["role"],
+            "pending": pending_count,
+            "last_task": last_task
+        })
+    return tasks
+
+def get_task_history():
+    """获取任务历史"""
+    return list(task_history)[-30:]
+
+def add_task_to_history(worker, task_type, status, details=""):
+    """添加任务到历史"""
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    task_history.append({
+        "time": now,
+        "worker": worker,
+        "type": task_type,
+        "status": status,
+        "details": details
+    })
+    save_data()
+
+def generate_svg_chart(values, width=180, height=50, color="#00d9ff", fill=True):
+    if not values or len(values) < 2:
+        return ""
+    max_val = max(values) if max(values) > 0 else 1
+    min_val = min(values) if min(values) < max_val else 0
+    range_val = max_val - min_val if max_val != min_val else 1
+    step = width / (len(values) - 1)
+    points = []
+    for i, v in enumerate(values):
+        x = i * step
+        y = height - ((v - min_val) / range_val * (height - 10) + 5)
+        points.append(f"{x:.1f},{y:.1f}")
+    path = "M " + " L ".join(points)
+    if fill:
+        area_points = points + [f"{width},{height}", f"0,{height}"]
+        area_path = "M " + " L ".join(area_points) + " Z"
+        return f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" preserveAspectRatio="none"><path d="{area_path}" fill="{color}22"/><path d="{path}" fill="none" stroke="{color}" stroke-width="2"/></svg>'
+    return f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" preserveAspectRatio="none"><path d="{path}" fill="none" stroke="{color}" stroke-width="2"/></svg>'
+
+def get_html():
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    containers = get_all_containers()
+    alerts_list = get_recent_alerts()
+
+    # 系统统计
+    stats = {"cpu": "0", "mem_percent": 0, "mem_used": "0", "mem_total": "0"}
+    cpu = run_cmd("top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | cut -d'%' -f1")
+    stats["cpu"] = cpu or "0"
+    mem_info = run_cmd("free -m | awk 'NR==2{printf \"%d %d %.0f\", $3, $2, $3/$2*100}'")
+    if mem_info:
+        parts = mem_info.split()
+        if len(parts) >= 3:
+            stats["mem_used"], stats["mem_total"], stats["mem_percent"] = parts[0], parts[1], float(parts[2])
+
+    # 保存历史
+    history.append({"time": now, "cpu": float(stats["cpu"]), "mem": stats["mem_percent"]})
+    save_data()
+
+    # 检查告警
+    check_alerts(containers)
+
+    # 容器卡片
+    containers_html = ""
+    for c in containers:
+        is_running = c.get("status") == "running"
+        is_a2a_ok = c.get("a2a_status", "online") == "online"
+
+        # 状态颜色和图标
+        if c.get("is_redis"):
+            status_icon = "🟢" if is_running else "🔴"
+            status_text = "运行中" if is_running else "已停止"
+            color = "#00d9ff"
+        elif c.get("is_pm2"):
+            status_icon = "🟢" if is_running else "🔴"
+            status_text = "运行中" if is_running else "已停止"
+            color = "#ffd93d"
+        else:
+            if is_running and is_a2a_ok:
+                status_icon = "🟢"
+                status_text = "运行中"
+                color = "#00ff88"
+            elif is_running and not is_a2a_ok:
+                status_icon = "🟡"
+                status_text = "失联"
+                color = "#ffaa00"
+            else:
+                status_icon = "🔴"
+                status_text = "异常"
+                color = "#ff4444"
+
+        # 最后消息时间
+        last_msg = c.get("last_msg", "")
+        last_msg_display = ""
+        if last_msg:
+            try:
+                msg_time = datetime.strptime(last_msg, '%Y-%m-%dT%H:%M:%S')
+                diff = (datetime.now() - msg_time).seconds
+                if diff < 60:
+                    last_msg_display = f"{diff}秒前"
+                elif diff < 3600:
+                    last_msg_display = f"{diff//60}分钟前"
+                else:
+                    last_msg_display = f"{diff//3600}小时前"
+            except:
+                last_msg_display = last_msg
+
+        mem_display = f"{c.get('mem', 0):.1f}{c.get('mem_unit', 'MB')}"
+
+        containers_html += f'''
+        <div class="container-card" style="border-left:4px solid {color}">
+            <div class="container-header">
+                <div class="container-status-icon">{status_icon}</div>
+                <div class="container-basic-info">
+                    <div class="container-name">{c['name']}</div>
+                    <div class="container-role">{c.get('role', '')}</div>
+                </div>
+                <div class="container-status-badge" style="background:{color}22;color:{color}">{status_text}</div>
+            </div>
+            <div class="container-stats">
+                <div class="stat-item">
+                    <span class="stat-label">运行时长</span>
+                    <span class="stat-value-small">{c.get('uptime', '未知')}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">CPU</span>
+                    <span class="stat-value-small" style="color:{'#00ff88' if c.get('cpu', 0) < 50 else '#ffaa00' if c.get('cpu', 0) < 80 else '#ff4444'}">{c.get('cpu', 0):.1f}%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">内存</span>
+                    <span class="stat-value-small" style="color:#00d9ff">{mem_display}</span>
+                </div>
+            </div>
+            {f'<div class="container-last-msg"><span class="msg-label">最后消息</span><span class="msg-time">{last_msg_display}</span></div>' if last_msg and not c.get('is_redis') and not c.get('is_pm2') else ''}
+        </div>'''
+
+    # 告警列表
+    alerts_html = ""
+    if alerts_list:
+        for a in reversed(alerts_list[-15:]):
+            alert_class = "alert-error" if a["level"] == "error" else "alert-warning"
+            alert_icon = "🔴" if a["level"] == "error" else "🟡"
+            alerts_html += f'''
+            <div class="alert-item {alert_class}">
+                <span class="alert-icon">{alert_icon}</span>
+                <span class="alert-time">{a["time"]}</span>
+                <span class="alert-msg">{html_escape(a["msg"])}</span>
+            </div>'''
+    else:
+        alerts_html = '<div class="alerts-empty">✓ 暂无异常</div>'
+
+    # 日志
+    logs = get_recent_logs()
+    logs_html = ""
+    for log in logs[-15:]:
+        log_class = "log-error" if "error" in log.lower() or "Error" in log else "log-warn" if "circuit" in log or "timeout" in log else "log-info"
+        logs_html += f'<div class="log-entry {log_class}">{log}</div>'
+
+    # 图表
+    history_list = list(history)
+    cpu_chart = generate_svg_chart([h["cpu"] for h in history_list[-30:]], 180, 50, "#ff6b6b")
+    mem_chart = generate_svg_chart([h["mem"] for h in history_list[-30:]], 180, 50, "#00d9ff")
+
+    # 任务状态
+    tasks = get_worker_tasks()
+    task_history_list = get_task_history()
+
+    uptime_result = run_cmd("uptime -p")
+    uptime_display = uptime_result.replace("up ", "") if uptime_result else "未知"
+    load_result = run_cmd("uptime | awk -F'load average:' '{print $2}' | awk -F',' '{print $1}'")
+    load_display = load_result.strip() if load_result else "0"
+
+    return f'''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="5">
+<title>OpenClaw 企业监控中心</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+:root {{ --bg-primary: #0a0a0f; --bg-secondary: #0f0f1a; --bg-card: rgba(20, 20, 35, 0.8); --border-color: rgba(255, 255, 255, 0.08); --text-primary: #ffffff; --text-secondary: #888888; --accent-cyan: #00d9ff; --accent-green: #00ff88; --accent-red: #ff6b6b; --accent-yellow: #ffd93d; --alert-bg: rgba(255, 68, 68, 0.1); }}
+body {{ font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif; background: radial-gradient(ellipse at top, #1a1a2e 0%, var(--bg-primary) 100%); color: var(--text-primary); min-height: 100vh; }}
+.container {{ max-width: 1600px; margin: 0 auto; padding: 30px; }}
+
+/* Header */
+header {{ text-align: center; padding: 30px 0 40px; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; }}
+h1 {{ font-size: 32px; font-weight: 700; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 15px; }}
+.subtitle {{ color: var(--text-secondary); font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 15px; }}
+.live-dot {{ width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; animation: pulse 2s ease infinite; display: inline-block; }}
+@keyframes pulse {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.4; }} }}
+
+/* Grid Layout */
+.main-grid {{ display: grid; grid-template-columns: 1fr 400px; gap: 24px; }}
+@media (max-width: 1200px) {{ .main-grid {{ grid-template-columns: 1fr; }} }}
+
+/* Sections */
+.section {{ background: var(--bg-card); backdrop-filter: blur(20px); border-radius: 20px; padding: 24px; border: 1px solid var(--border-color); margin-bottom: 24px; }}
+.section-title {{ font-size: 18px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }}
+.section-title-icon {{ font-size: 22px; }}
+
+/* Container Cards */
+.containers-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }}
+.container-card {{ background: rgba(0, 0, 0, 0.3); border-radius: 16px; padding: 20px; transition: all 0.3s ease; }}
+.container-card:hover {{ transform: translateY(-4px); background: rgba(0, 0, 0, 0.4); }}
+.container-header {{ display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }}
+.container-status-icon {{ font-size: 24px; }}
+.container-basic-info {{ flex: 1; }}
+.container-name {{ font-size: 18px; font-weight: 600; }}
+.container-role {{ font-size: 13px; color: var(--text-secondary); margin-top: 2px; }}
+.container-status-badge {{ padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }}
+.container-stats {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }}
+.stat-item {{ text-align: center; padding: 10px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; }}
+.stat-label {{ font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px; }}
+.stat-value-small {{ font-size: 14px; font-weight: 600; }}
+.container-last-msg {{ display: flex; justify-content: space-between; padding: 10px 12px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; font-size: 12px; }}
+.msg-label {{ color: var(--text-secondary); }}
+.msg-time {{ color: var(--accent-cyan); font-weight: 600; }}
+
+/* Alerts Panel */
+.alerts-container {{ max-height: 600px; overflow-y: auto; }}
+.alert-item {{ display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: rgba(0, 0, 0, 0.2); border-radius: 10px; margin-bottom: 8px; border-left: 3px solid; }}
+.alert-warning {{ border-left-color: var(--accent-yellow); background: rgba(255, 170, 0, 0.08); }}
+.alert-error {{ border-left-color: var(--accent-red); background: rgba(255, 68, 68, 0.08); }}
+.alert-icon {{ font-size: 16px; }}
+.alert-time {{ font-size: 12px; color: var(--text-secondary); min-width: 85px; }}
+.alert-msg {{ font-size: 13px; color: var(--text-primary); flex: 1; }}
+.alerts-empty {{ text-align: center; color: var(--accent-green); padding: 30px; font-size: 14px; }}
+
+/* Stats */
+.stats-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }}
+.stat-card {{ background: rgba(0, 0, 0, 0.3); border-radius: 16px; padding: 20px; text-align: center; }}
+.stat-value {{ font-size: 36px; font-weight: 700; margin-bottom: 8px; }}
+.stat-value.cpu {{ color: var(--accent-red); }}
+.stat-value.mem {{ color: var(--accent-cyan); }}
+.stat-label {{ font-size: 13px; color: var(--text-secondary); }}
+.stat-chart {{ margin-top: 12px; }}
+
+/* Logs */
+.logs-container {{ max-height: 300px; overflow-y: auto; }}
+.log-entry {{ padding: 10px 12px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; border-left: 3px solid transparent; }}
+.log-info {{ border-left-color: var(--accent-cyan); }}
+.log-warn {{ border-left-color: var(--accent-yellow); background: rgba(255, 170, 0, 0.05); }}
+.log-error {{ border-left-color: var(--accent-red); background: rgba(255, 68, 68, 0.05); }}
+
+/* Tasks */
+.tasks-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }}
+.task-card {{ background: rgba(0, 0, 0, 0.3); border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); transition: all 0.3s ease; }}
+.task-card:hover {{ transform: translateY(-2px); background: rgba(0, 0, 0, 0.4); }}
+.task-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }}
+.task-name {{ font-size: 16px; font-weight: 600; color: var(--text-primary); }}
+.task-badge {{ padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }}
+.task-badge-busy {{ background: rgba(255, 170, 0, 0.2); color: #ffaa00; }}
+.task-badge-idle {{ background: rgba(0, 255, 136, 0.2); color: #00ff88; }}
+.task-role {{ font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }}
+.task-last {{ display: flex; justify-content: space-between; padding: 10px 12px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; font-size: 12px; margin-bottom: 8px; }}
+.task-last-label {{ color: var(--text-secondary); }}
+.task-last-time {{ color: var(--accent-cyan); font-weight: 600; }}
+.task-last-summary {{ font-size: 11px; color: var(--text-secondary); padding: 8px 12px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.task-no-recent {{ font-size: 12px; color: var(--text-secondary); text-align: center; padding: 15px; }}
+.task-history-section {{ margin-top: 20px; }}
+.section-subtitle {{ font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; font-weight: 500; }}
+.task-history-list {{ max-height: 250px; overflow-y: auto; }}
+.task-history-item {{ display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-bottom: 6px; font-size: 12px; }}
+.th-time {{ color: var(--text-secondary); min-width: 90px; }}
+.th-worker {{ color: var(--accent-cyan); min-width: 70px; font-weight: 600; }}
+.th-type {{ flex: 1; color: var(--text-primary); }}
+.th-status {{ padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; }}
+.th-status-done {{ background: rgba(0, 255, 136, 0.2); color: #00ff88; }}
+.th-status-pending {{ background: rgba(255, 170, 0, 0.2); color: #ffaa00; }}
+.task-history-empty {{ text-align: center; color: var(--text-secondary); padding: 20px; font-size: 13px; }}
+
+/* Create Task Form */
+.create-task-section {{ background: rgba(0, 0, 0, 0.2); border-radius: 12px; padding: 16px; margin-top: 16px; }}
+.task-form-row {{ display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }}
+.task-form-select {{ background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 14px; border-radius: 8px; font-size: 13px; min-width: 140px; cursor: pointer; }}
+.task-form-select:hover {{ border-color: var(--accent-cyan); }}
+.task-form-input {{ flex: 1; min-width: 200px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 14px; border-radius: 8px; font-size: 13px; }}
+.task-form-input:focus {{ outline: none; border-color: var(--accent-cyan); }}
+.task-create-btn {{ background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); border: none; color: #000; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s ease; }}
+.task-create-btn:hover {{ transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 217, 255, 0.4); }}
+.task-create-btn:active {{ transform: translateY(0); }}
+
+/* Refresh Button */
+.refresh-btn {{ background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; margin-left: auto; transition: all 0.3s ease; }}
+.refresh-btn:hover {{ background: rgba(255, 255, 255, 0.15); border-color: var(--accent-cyan); }}
+
+/* Scrollbar */
+::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+::-webkit-scrollbar-track {{ background: rgba(0, 0, 0, 0.2); }}
+::-webkit-scrollbar-thumb {{ background: rgba(255, 255, 255, 0.1); border-radius: 3px; }}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+    <h1>🚀 OpenClaw 企业监控中心</h1>
+    <p class="subtitle">
+        <span><span class="live-dot"></span>实时监控</span>
+        <span>· 更新时间：{now}</span>
+        <span>· 5 秒自动刷新</span>
+    </p>
+</header>
+
+<div class="main-grid">
+<div class="main-content">
+    <section class="section">
+        <div class="section-title"><span class="section-title-icon">📊</span>系统资源</div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value cpu">{stats["cpu"]}%</div>
+                <div class="stat-label">CPU 使用率</div>
+                <div class="stat-chart">{cpu_chart}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value mem">{stats["mem_percent"]:.0f}%</div>
+                <div class="stat-label">内存 {stats["mem_used"]}/{stats["mem_total"]} MB</div>
+                <div class="stat-chart">{mem_chart}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color:var(--accent-green);font-size:28px">{len([c for c in containers if c.get("status")=="running"])}/{len(containers)}</div>
+                <div class="stat-label">容器运行中</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color:var(--accent-yellow);font-size:28px">{len(alerts_list)}</div>
+                <div class="stat-label">活跃告警</div>
+            </div>
+        </div>
+        <div style="text-align:center;color:var(--text-secondary);font-size:13px">
+            系统运行：{uptime_display} · 负载：{load_display}
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-title"><span class="section-title-icon">🐳</span>容器状态总览</div>
+        <div class="containers-grid">
+            {containers_html}
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-title"><span class="section-title-icon">📝</span>实时日志</div>
+        <div class="logs-container">{logs_html}</div>
+    </section>
+
+    <section class="section">
+        <div class="section-title">
+            <span class="section-title-icon">📋</span>任务队列管理
+            <button class="refresh-btn" onclick="refreshTasks()" title="刷新任务状态">🔄 刷新</button>
+        </div>
+        <div class="tasks-grid" id="tasks-grid">
+            {''.join([f'''
+            <div class="task-card">
+                <div class="task-header">
+                    <span class="task-name">{t["name"]}</span>
+                    <span class="task-badge {"task-badge-busy" if t["pending"] > 0 else "task-badge-idle"}">{t["pending"]} 待处理</span>
+                </div>
+                <div class="task-role">{t["role"]}</div>
+                {f'<div class="task-last"><span class="task-last-label">最近任务</span><span class="task-last-time">{t["last_task"]["time"]}</span></div><div class="task-last-summary">{html_escape(t["last_task"]["summary"])}</div>' if t["last_task"] else '<div class="task-no-recent">暂无任务记录</div>'}
+            </div>
+            ''' for t in tasks])}
+        </div>
+
+        <!-- 创建任务表单 -->
+        <div class="create-task-section">
+            <div class="section-subtitle">➕ 创建新任务</div>
+            <div class="task-form-row">
+                <select id="task-worker" class="task-form-select">
+                    <option value="tech">CTO (技术员)</option>
+                    <option value="ops">运营官</option>
+                    <option value="image">设计师</option>
+                    <option value="naming">南南 (命名官)</option>
+                </select>
+                <select id="task-type" class="task-form-select">
+                    <option value="code">代码开发</option>
+                    <option value="review">代码审查</option>
+                    <option value="content">内容运营</option>
+                    <option value="design">设计</option>
+                    <option value="naming">命名/SEO</option>
+                    <option value="debug">调试</option>
+                    <option value="general">通用任务</option>
+                </select>
+                <input type="text" id="task-content" class="task-form-input" placeholder="输入任务描述..." onkeypress="if(event.key==='Enter')createTask()">
+                <button class="task-create-btn" onclick="createTask()">发送任务</button>
+            </div>
+        </div>
+
+        <div class="task-history-section">
+            <div class="section-subtitle">任务历史</div>
+            <div class="task-history-list" id="task-history-list">
+                {f''.join([f'<div class="task-history-item"><span class="th-time">{th["time"]}</span><span class="th-worker">{th["worker"]}</span><span class="th-type">{th["type"]}</span><span class="th-status {"th-status-done" if th["status"] == "completed" else "th-status-pending"}">{th["status"]}</span></div>' for th in task_history_list[-10:]]) if task_history_list else '<div class="task-history-empty">暂无任务历史记录</div>'}
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="side-panel">
+    <section class="section">
+        <div class="section-title"><span class="section-title-icon">🔔</span>异常告警</div>
+        <div class="alerts-container">
+            {alerts_html}
+        </div>
+    </section>
+</div>
+</div>
+
+<footer style="text-align:center;padding:20px;color:var(--text-secondary);font-size:12px;border-top:1px solid var(--border-color);margin-top:30px;">
+    OpenClaw 企业监控系统 v4.0 · 南朝译 AI 团队
+</footer>
+</div>
+<script>
+function createTask() {{
+    const worker = document.getElementById('task-worker').value;
+    const type = document.getElementById('task-type').value;
+    const content = document.getElementById('task-content').value.trim();
+    if (!content) {{ alert('请输入任务描述'); return; }}
+    fetch('/api/task/create', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{worker, type, content}})
+    }})
+    .then(r => r.json())
+    .then(data => {{
+        if (data.success) {{
+            alert('任务已创建');
+            document.getElementById('task-content').value = '';
+            refreshTasks();
+        }} else {{ alert('创建失败：' + data.message); }}
+    }})
+    .catch(e => alert('错误：' + e));
+}}
+
+function refreshTasks() {{
+    fetch('/api/tasks')
+    .then(r => r.json())
+    .then(data => {{
+        const grid = document.getElementById('tasks-grid');
+        if (grid && data.tasks) {{
+            grid.innerHTML = data.tasks.map(t => {{
+                const badgeClass = t.pending > 0 ? 'task-badge-busy' : 'task-badge-idle';
+                const lastTaskHtml = t.last_task ?
+                    `<div class="task-last"><span class="task-last-label">最近任务</span><span class="task-last-time">${{t.last_task.time}}</span></div><div class="task-last-summary">${{t.last_task.summary}}</div>` :
+                    '<div class="task-no-recent">暂无任务记录</div>';
+                return `<div class="task-card"><div class="task-header"><span class="task-name">${{t.name}}</span><span class="task-badge ${{badgeClass}}">${{t.pending}} 待处理</span></div><div class="task-role">${{t.role}}</div>${{lastTaskHtml}}</div>`;
+            }}).join('');
+        }}
+        const historyList = document.getElementById('task-history-list');
+        if (historyList && data.history && data.history.length > 0) {{
+            historyList.innerHTML = data.history.slice(-10).map(th =>
+                `<div class="task-history-item"><span class="th-time">${{th.time}}</span><span class="th-worker">${{th.worker}}</span><span class="th-type">${{th.type}}</span><span class="th-status">${{th.status}}</span></div>`
+            ).join('');
+        }} else if (historyList) {{
+            historyList.innerHTML = '<div class="task-history-empty">暂无任务历史记录</div>';
+        }}
+    }})
+    .catch(e => console.error('刷新失败:', e));
+}}
+
+document.addEventListener('DOMContentLoaded', refreshTasks);
+</script>
+</body>
+</html>'''
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/api/tasks':
+            # 获取任务列表 API
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.end_headers()
+            tasks = get_worker_tasks()
+            history = get_task_history()
+            response = json.dumps({'tasks': tasks, 'history': history}, ensure_ascii=False)
+            self.wfile.write(response.encode('utf-8'))
+        elif self.path == '/api/workers':
+            # 获取 Worker 列表 API
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.end_headers()
+            workers = [
+                {'id': 'tech', 'name': 'CTO', 'role': '技术员'},
+                {'id': 'ops', 'name': '运营官', 'role': '运营官'},
+                {'id': 'image', 'name': '设计师', 'role': '设计师'},
+                {'id': 'naming', 'name': '南南', 'role': '命名官'}
+            ]
+            self.wfile.write(json.dumps(workers, ensure_ascii=False).encode('utf-8'))
+        else:
+            # 主页面
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(get_html().encode('utf-8'))
+
+    def do_POST(self):
+        if self.path.startswith('/api/task/create'):
+            # 创建任务 API
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                worker = data.get('worker', 'tech')
+                task_type = data.get('type', 'general')
+                content = data.get('content', '')
+
+                # 记录任务到历史
+                add_task_to_history(worker, task_type, 'pending', content)
+
+                # 尝试调用 openclaw CLI 创建任务（如果可用）
+                result = run_cmd(f"docker exec openclaw-{worker} openclaw task create --type {task_type} --content '{content}' 2>/dev/null || echo 'CLI_NOT_AVAILABLE'")
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.end_headers()
+                response = json.dumps({
+                    'success': True,
+                    'message': '任务已创建' if result != 'CLI_NOT_AVAILABLE' else '任务已记录（CLI 不可用）',
+                    'worker': worker,
+                    'task_type': task_type
+                }, ensure_ascii=False)
+                self.wfile.write(response.encode('utf-8'))
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.end_headers()
+                response = json.dumps({'success': False, 'message': str(e)}, ensure_ascii=False)
+                self.wfile.write(response.encode('utf-8'))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"监控网页已启动：http://0.0.0.0:{PORT}")
+        httpd.serve_forever()

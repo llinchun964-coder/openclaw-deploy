@@ -1,0 +1,8 @@
+{
+  "id": "12",
+  "subject": "架构升级方案设计与实施",
+  "description": "基于当前架构状态，设计并实施 5 个升级方向：1) A2A 端点健康修复 2) 自动熔断告警 3) 容器健康监控 4) 统一端口配置 5) WebSocket 连接监控",
+  "status": "in_progress",
+  "blocks": [],
+  "blockedBy": []
+}

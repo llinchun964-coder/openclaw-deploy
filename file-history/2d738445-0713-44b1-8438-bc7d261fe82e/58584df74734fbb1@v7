@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+"""OpenClaw 监控网页 - 专业版"""
+
+import http.server
+import socketserver
+import subprocess
+import re
+import json
+import os
+from datetime import datetime
+from collections import deque
+
+PORT = 18080
+HISTORY_FILE = "/root/.openclaw/logs/monitor-history.json"
+
+# 内存历史记录（最多 100 条）
+history = deque(maxlen=100)
+
+def load_history():
+    global history
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, 'r') as f:
+                data = json.load(f)
+                history = deque(data[-100:], maxlen=100)
+    except:
+        pass
+
+def save_history():
+    try:
+        os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(list(history), f)
+    except:
+        pass
+
+load_history()
+
+def run_cmd(cmd):
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+        return result.stdout.strip()
+    except:
+        return ""
+
+def clean_ansi(text):
+    text = re.sub(r'\x1B\[[0-9;]*[a-zA-Z]', '', text)
+    text = re.sub(r'\x1B[@-Z\\-_]', '', text)
+    return text.strip()
+
+def html_escape(text):
+    if not text:
+        return ""
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+def get_worker_info(port):
+    """获取 Worker 详细信息"""
+    info = {"ok": False, "latency": "0", "http_code": "000"}
+    try:
+        # HTTP 检查
+        code = run_cmd(f"curl -s -o /dev/null -w '%{{http_code}}' --connect-timeout 2 http://127.0.0.1:{port}/.well-known/agent-card.json")
+        latency = run_cmd(f"curl -s -o /dev/null -w '%{{time_total}}' --connect-timeout 2 http://127.0.0.1:{port}/.well-known/agent-card.json")
+        info["http_code"] = code or "000"
+        info["latency"] = latency or "0"
+        info["ok"] = code == "200"
+
+        # 获取 agent-card 内容
+        if info["ok"]:
+            card = run_cmd(f"curl -s http://127.0.0.1:{port}/.well-known/agent-card.json")
+            if card:
+                try:
+                    card_data = json.loads(card)
+                    info["name"] = card_data.get("name", "")
+                    info["version"] = card_data.get("version", "")
+                except:
+                    pass
+    except:
+        pass
+    return info
+
+def get_container_details():
+    """获取容器详细信息"""
+    containers = []
+    result = run_cmd("docker ps --filter 'name=openclaw-' --format '{{.Names}}\\t{{.Status}}\\t{{.CPUPerc}}\\t{{.MemPerc}}' | grep -v redis")
+    if result:
+        for line in result.split('\n'):
+            parts = line.split('\t')
+            if len(parts) >= 4:
+                name = parts[0].replace('openclaw-', '')
+                status = parts[1]
+                cpu = parts[2].rstrip('%')
+                mem = parts[3].rstrip('%')
+                containers.append({
+                    "name": name,
+                    "status": status.split(' ')[0],
+                    "cpu": cpu,
+                    "mem": mem
+                })
+    return containers
+
+def get_task_details():
+    """获取任务队列详情"""
+    tasks = []
+    for worker_type, name in [("tech", "技术员"), ("ops", "运营官"), ("image", "设计师"), ("naming", "南南")]:
+        task_dir = f"/root/.openclaw/{worker_type}"
+        try:
+            result = run_cmd(f"docker exec openclaw-{worker_type} ls -lt /root/.openclaw/a2a-tasks/ 2>/dev/null | head -5")
+            task_files = []
+            if result:
+                for line in result.split('\n'):
+                    if '.json' in line:
+                        parts = line.split()
+                        if len(parts) >= 8:
+                            filename = parts[-1]
+                            date = f"{parts[1]} {parts[2]} {parts[3]}"
+                            task_files.append({"name": filename, "time": date})
+            tasks.append({"name": name, "count": len(task_files), "files": task_files})
+        except:
+            tasks.append({"name": name, "count": 0, "files": []})
+    return tasks
+
+def get_system_stats():
+    """获取系统统计"""
+    stats = {
+        "cpu": "0",
+        "mem_used": "0",
+        "mem_total": "0",
+        "mem_percent": 0,
+        "disk_used": "0",
+        "disk_total": "0",
+        "disk_percent": 0,
+        "uptime": "0"
+    }
+
+    # CPU
+    cpu = run_cmd("top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | cut -d'%' -f1")
+    stats["cpu"] = cpu or "0"
+
+    # 内存
+    mem_info = run_cmd("free -m | awk 'NR==2{printf \"%d %d %.0f\", $3, $2, $3/$2*100}'")
+    if mem_info:
+        parts = mem_info.split()
+        if len(parts) >= 3:
+            stats["mem_used"] = parts[0]
+            stats["mem_total"] = parts[1]
+            stats["mem_percent"] = float(parts[2])
+
+    # 磁盘
+    disk_info = run_cmd("df -h / | awk 'NR==2{printf \"%s %s %s\", $3, $2, $5}' | tr -d '%'")
+    if disk_info:
+        parts = disk_info.split()
+        if len(parts) >= 3:
+            stats["disk_used"] = parts[0]
+            stats["disk_total"] = parts[1]
+            stats["disk_percent"] = float(parts[2])
+
+    # 运行时间
+    uptime_info = run_cmd("uptime -p")
+    stats["uptime"] = uptime_info.replace("up ", "") if uptime_info else "未知"
+
+    return stats
+
+def get_pm2_status():
+    """获取 PM2 进程状态"""
+    pm2_apps = []
+    result = run_cmd("pm2 list --no-color 2>/dev/null")
+    if result:
+        lines = result.split('\n')
+        for line in lines:
+            if 'online' in line.lower() or 'stopped' in line.lower() or 'errored' in line.lower():
+                parts = line.split()
+                if len(parts) >= 8:
+                    pm2_apps.append({
+                        "name": parts[1] if len(parts) > 1 else "unknown",
+                        "status": parts[3] if len(parts) > 3 else "unknown",
+                        "cpu": parts[5] if len(parts) > 5 else "0%",
+                        "mem": parts[6] if len(parts) > 6 else "0B"
+                    })
+    return pm2_apps
+
+def get_circuit_status():
+    """获取熔断器状态"""
+    result = run_cmd("pm2 logs master-nanchaoyi --lines 10 --nostream 2>&1 | grep -c 'circuit.open' || echo 0")
+    count = int(result.strip()) if result.strip().isdigit() else 0
+    return {"open": count > 0, "count": count}
+
+def get_recent_logs():
+    """获取最近日志"""
+    logs = []
+    result = run_cmd("pm2 logs master-nanchaoyi --lines 20 --nostream 2>&1 | grep -E 'feishu|dispatch|circuit|error' | tail -20")
+    if result:
+        for line in result.split('\n'):
+            line = clean_ansi(line).strip()
+            if line:
+                logs.append(html_escape(line))
+    return logs
+
+def generate_mini_chart(values, width=100, height=30, color="#00d9ff"):
+    """生成迷你图表 SVG"""
+    if not values or len(values) < 2:
+        return ""
+
+    max_val = max(values) if max(values) > 0 else 100
+    min_val = 0
+    step = width / (len(values) - 1) if len(values) > 1 else width
+
+    points = []
+    for i, v in enumerate(values):
+        x = i * step
+        y = height - (v - min_val) / (max_val - min_val) * height if max_val != min_val else height / 2
+        points.append(f"{x:.1f},{y:.1f}")
+
+    path = "M " + " L ".join(points)
+    return f'<svg width="{width}" height="{height}" style="display:block;margin:0 auto"><path d="{path}" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+def get_html():
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # 收集 Worker 状态
+    workers = []
+    worker_config = [
+        ("技术员", 18811, "👨‍💻", "代码开发、调试、重构", "#00d9ff"),
+        ("运营官", 18813, "📝", "内容创作、文案、策划", "#00ff88"),
+        ("设计师", 18815, "🎨", "图像处理、设计优化", "#ff6b6b"),
+        ("南南", 18817, "🤖", "命名、翻译、咨询", "#ffd93d")
+    ]
+
+    for name, port, icon, desc, color in worker_config:
+        info = get_worker_info(port)
+        workers.append({
+            "name": name,
+            "port": port,
+            "icon": icon,
+            "desc": desc,
+            "color": color,
+            "ok": info["ok"],
+            "latency": info["latency"],
+            "http_code": info["http_code"]
+        })
+
+    # 保存历史记录
+    all_ok = all(w["ok"] for w in workers)
+    stats = get_system_stats()
+    history.append({
+        "time": now,
+        "ok": all_ok,
+        "cpu": float(stats["cpu"]),
+        "mem": stats["mem_percent"],
+        "workers_up": sum(1 for w in workers if w["ok"])
+    })
+    save_history()
+
+    # Worker 卡片 HTML
+    workers_html = ""
+    for w in workers:
+        status_color = w["color"] if w["ok"] else "#ff4444"
+        status_text = "✓ 运行中" if w["ok"] else "✗ 已断开"
+        latency_display = f'<div class="latency-badge" style="margin-top:8px"><span style="background:{w["color"]}22;color:{w["color"]};padding:3px 10px;border-radius:6px;font-size:12px">{w["latency"]}秒</span></div>' if w["ok"] else ""
+        workers_html += f'''
+        <div class="worker-card" style="border-left:4px solid {status_color}">
+            <div style="font-size:48px;margin-bottom:12px;text-shadow:0 0 20px {status_color}44">{w["icon"]}</div>
+            <div style="font-size:20px;color:#fff;font-weight:bold;margin-bottom:6px">{w["name"]}</div>
+            <div style="font-size:13px;color:#666;margin-bottom:15px;line-height:1.5">{w["desc"]}</div>
+            <div style="display:inline-block;padding:8px 24px;border-radius:24px;font-size:14px;font-weight:bold;background:{status_color}22;color:{status_color};border:1px solid {status_color}44">{status_text}</div>
+            {latency_display}
+            <div style="margin-top:12px;font-size:11px;color:#444">端口：{w["port"]}</div>
+        </div>'''
+
+    # 容器详情
+    containers = get_container_details()
+    containers_html = ""
+    if containers:
+        for c in containers:
+            cpu_color = "#00ff88" if float(c["cpu"]) < 50 else "#ffaa00" if float(c["cpu"]) < 80 else "#ff4444"
+            containers_html += f'''
+            <div class="container-row">
+                <div class="container-info">
+                    <span class="container-icon">🐳</span>
+                    <span class="container-name">{c["name"]}</span>
+                    <span class="container-status" style="color:{c["color"] if "color" in c else "#00ff88"}">{c["status"]}</span>
+                </div>
+                <div class="container-stats">
+                    <div class="stat-mini"><span style="color:{cpu_color}">CPU {c["cpu"]}%</span></div>
+                    <div class="stat-mini"><span style="color:#00d9ff">MEM {c["mem"]}%</span></div>
+                </div>
+            </div>'''
+
+    # 任务队列
+    tasks = get_task_details()
+    tasks_html = ""
+    for t in tasks:
+        task_color = "#ffaa00" if t["count"] > 5 else "#00ff88"
+        tasks_html += f'''
+        <div class="task-row">
+            <span class="task-icon">{t["name"][:1]}</span>
+            <span class="task-name">{t["name"]}</span>
+            <span class="task-count" style="color:{task_color}">{t["count"]} 个任务</span>
+        </div>'''
+
+    # 系统统计
+    cpu_chart = generate_mini_chart([h["cpu"] for h in history], 120, 40, "#ff6b6b")
+    mem_chart = generate_mini_chart([h["mem"] for h in history], 120, 40, "#00d9ff")
+
+    # PM2 状态
+    pm2_apps = get_pm2_status()
+    pm2_html = ""
+    if pm2_apps:
+        for app in pm2_apps:
+            pm2_html += f'<div class="pm2-row"><span class="pm2-name">{html_escape(app["name"])}</span><span class="pm2-status status-{app["status"].lower()}">{app["status"]}</span><span class="pm2-stat">CPU:{app["cpu"]}</span><span class="pm2-stat">MEM:{app["mem"]}</span></div>'
+
+    # 熔断器
+    circuit = get_circuit_status()
+    circuit_color = "#00ff88" if not circuit["open"] else "#ff4444"
+    circuit_icon = "✓" if not circuit["open"] else "⚠"
+    circuit_text = "正常" if not circuit["open"] else f"有 {circuit['count']} 个熔断"
+
+    # 日志
+    logs = get_recent_logs()
+    logs_html = ""
+    if logs:
+        for log in logs[-10:]:
+            log_class = "log-error" if "error" in log.lower() else "log-warn" if "circuit" in log.lower() else "log-info"
+            logs_html += f'<div class="log-entry {log_class}">{log}</div>'
+    else:
+        logs_html = '<div class="log-empty">暂无日志</div>'
+
+    # 历史记录图表
+    history_ok_chart = generate_mini_chart([100 if h["ok"] else 0 for h in history], 150, 40, "#00ff88")
+
+    return f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="5">
+<title>南朝译 AI 监控中心</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ font-family: -apple-system, "Microsoft YaHei", "Segoe UI", sans-serif; background: linear-gradient(135deg, #0a0a12 0%, #0f0f1f 50%, #1a1a2e 100%); color: #fff; padding: 0; min-height: 100vh; }}
+.container {{ max-width: 1400px; margin: 0 auto; padding: 20px; }}
+header {{ text-align: center; padding: 30px 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 30px; }}
+h1 {{ font-size: 32px; background: linear-gradient(90deg, #00d9ff, #00ff88, #00d9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 10px; text-shadow: 0 0 40px rgba(0, 217, 255, 0.3); animation: glow 3s ease-in-out infinite; }}
+@keyframes glow {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.7; }} }}
+.time {{ color: #666; font-size: 14px; }}
+.grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }}
+.worker-card {{ background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%); backdrop-filter: blur(20px); border-radius: 20px; padding: 30px; text-align: center; border: 1px solid rgba(255,255,255,0.08); transition: all 0.3s ease; }}
+.worker-card:hover {{ transform: translateY(-8px); box-shadow: 0 20px 60px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.15); }}
+.section {{ background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border-radius: 20px; padding: 25px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.08); }}
+.section-title {{ font-size: 18px; color: #00d9ff; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-weight: 600; }}
+.section-title::before {{ content: ""; width: 4px; height: 20px; background: linear-gradient(180deg, #00d9ff, #00ff88); border-radius: 2px; }}
+
+/* 系统统计 */
+.stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; }}
+.stat-card {{ background: rgba(0,0,0,0.3); border-radius: 16px; padding: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.05); position: relative; overflow: hidden; }}
+.stat-card::after {{ content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #00d9ff, #00ff88); }}
+.stat-value {{ font-size: 36px; font-weight: bold; margin-bottom: 5px; }}
+.stat-value.cpu {{ color: #ff6b6b; }}
+.stat-value.mem {{ color: #00d9ff; }}
+.stat-value.disk {{ color: #ffd93d; }}
+.stat-value.uptime {{ color: #00ff88; }}
+.stat-label {{ font-size: 13px; color: #666; }}
+.stat-chart {{ margin-top: 10px; opacity: 0.6; }}
+
+/* 容器 */
+.container-row {{ display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 10px; }}
+.container-info {{ display: flex; align-items: center; gap: 12px; }}
+.container-icon {{ font-size: 24px; }}
+.container-name {{ font-size: 16px; font-weight: 600; }}
+.container-status {{ font-size: 12px; padding: 4px 12px; background: rgba(0,255,136,0.15); border-radius: 20px; color: #00ff88; }}
+.container-stats {{ display: flex; gap: 20px; }}
+.stat-mini {{ font-size: 13px; color: #888; }}
+
+/* 任务 */
+.task-row {{ display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 8px; }}
+.task-icon {{ width: 36px; height: 36px; background: linear-gradient(135deg, #00d9ff, #00ff88); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; }}
+.task-name {{ flex: 1; font-size: 15px; }}
+.task-count {{ font-size: 14px; font-weight: 600; }}
+
+/* PM2 */
+.pm2-row {{ display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 6px; font-size: 13px; }}
+.pm2-name {{ color: #aaa; width: 150px; }}
+.pm2-status {{ padding: 3px 10px; border-radius: 6px; font-size: 11px; }}
+.pm2-status-online {{ background: rgba(0,255,136,0.2); color: #00ff88; }}
+.pm2-status-stopped {{ background: rgba(255,170,0,0.2); color: #ffaa00; }}
+.pm2-status-errored {{ background: rgba(255,68,68,0.2); color: #ff4444; }}
+.pm2-stat {{ color: #666; font-size: 11px; margin-left: 15px; }}
+
+/* 日志 */
+.log-entry {{ padding: 10px 15px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 8px; font-family: "JetBrains Mono", monospace; font-size: 12px; border-left: 3px solid transparent; }}
+.log-info {{ border-left-color: #00d9ff; }}
+.log-warn {{ border-left-color: #ffaa00; background: rgba(255,170,0,0.05); }}
+.log-error {{ border-left-color: #ff4444; background: rgba(255,68,68,0.05); }}
+.log-empty {{ text-align: center; color: #666; padding: 30px; }}
+
+/* 熔断器 */
+.circuit-status {{ display: flex; align-items: center; gap: 15px; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; border-left: 4px solid {circuit_color}; }}
+.circuit-icon {{ font-size: 32px; }}
+.circuit-text {{ font-size: 16px; color: {circuit_color}; font-weight: 600; }}
+
+/* 响应式 */
+@media (max-width: 768px) {{
+    .grid {{ grid-template-columns: 1fr; }}
+    .stats-grid {{ grid-template-columns: repeat(2, 1fr); }}
+    h1 {{ font-size: 24px; }}
+}}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+    <h1>🚀 南朝译 AI 监控中心</h1>
+    <p class="time">更新时间：{now} · 每 5 秒自动刷新</p>
+</header>
+
+<section class="grid">
+{workers_html}
+</section>
+
+<section class="section">
+    <div class="section-title">📊 系统资源</div>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value cpu">{stats["cpu"]}%</div>
+            <div class="stat-label">CPU 使用率</div>
+            <div class="stat-chart">{cpu_chart}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value mem">{stats["mem_percent"]:.0f}%</div>
+            <div class="stat-label">内存 ({stats["mem_used"]}/{stats["mem_total"]} MB)</div>
+            <div class="stat-chart">{mem_chart}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value disk">{stats["disk_percent"]}%</div>
+            <div class="stat-label">磁盘 ({stats["disk_used"]}/{stats["disk_total"]})</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value uptime">{stats["uptime"]}</div>
+            <div class="stat-label">系统运行时间</div>
+        </div>
+    </div>
+
+    <div class="circuit-status">
+        <span class="circuit-icon">{circuit_icon}</span>
+        <span class="circuit-text">熔断器：{circuit_text}</span>
+    </div>
+</section>
+
+<section class="section">
+    <div class="section-title">🐳 容器监控</div>
+    {containers_html if containers_html else '<div style="color:#666;text-align:center;padding:20px">无容器运行</div>'}
+</section>
+
+<section class="section">
+    <div class="section-title">📋 任务队列</div>
+    {tasks_html}
+</section>
+
+<section class="section">
+    <div class="section-title">⚙️ PM2 进程</div>
+    {pm2_html if pm2_html else '<div style="color:#666;text-align:center;padding:20px">无 PM2 进程</div>'}
+</section>
+
+<section class="section">
+    <div class="section-title">📝 实时日志</div>
+    <div style="max-height:400px;overflow-y:auto;">
+    {logs_html}
+    </div>
+</section>
+
+<footer style="text-align:center;padding:30px 0;color:#444;font-size:13px;border-top:1px solid rgba(255,255,255,0.05);margin-top:30px;">
+    OpenClaw 监控系统 v2.0 · Powered by Python
+</footer>
+</div>
+</body>
+</html>'''
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(get_html().encode('utf-8'))
+    def log_message(self, format, *args):
+        pass
+
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"监控网页已启动：http://0.0.0.0:{PORT}")
+        httpd.serve_forever()

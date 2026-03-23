@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>南朝译 AI 员工监控</title>
+    <meta http-equiv="refresh" content="10">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+        h1 { text-align: center; margin-bottom: 20px; color: #00d9ff; }
+        .update-time { text-align: center; color: #888; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 1400px; margin: 0 auto; }
+        .card { background: #16213e; border-radius: 12px; padding: 20px; border: 2px solid #0f3460; }
+        .card h2 { font-size: 18px; margin-bottom: 15px; color: #00d9ff; border-bottom: 1px solid #0f3460; padding-bottom: 10px; }
+        .status-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #0f3460; }
+        .status-item:last-child { border-bottom: none; }
+        .status-ok { color: #00ff88; }
+        .status-warn { color: #ffaa00; }
+        .status-error { color: #ff4444; }
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .badge-ok { background: #00ff8833; color: #00ff88; }
+        .badge-warn { background: #ffaa0033; color: #ffaa00; }
+        .badge-error { background: #ff444433; color: #ff4444; }
+        .progress-bar { background: #0f3460; border-radius: 10px; height: 8px; overflow: hidden; margin-top: 5px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #00d9ff, #00ff88); transition: width 0.3s; }
+        .log-entry { font-family: monospace; font-size: 12px; color: #888; padding: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>📊 南朝译 AI 员工监控看板</h1>
+    <p class="update-time" id="updateTime">更新时间：加载中...</p>
+
+    <div class="grid">
+        <!-- 容器状态 -->
+        <div class="card">
+            <h2>🐳 容器状态</h2>
+            <div id="containers">加载中...</div>
+        </div>
+
+        <!-- A2A 端点 -->
+        <div class="card">
+            <h2>📡 A2A 端点健康</h2>
+            <div id="endpoints">加载中...</div>
+        </div>
+
+        <!-- 任务队列 -->
+        <div class="card">
+            <h2>📋 任务队列</h2>
+            <div id="tasks">加载中...</div>
+        </div>
+
+        <!-- 熔断器 -->
+        <div class="card">
+            <h2>⚡ 熔断器状态</h2>
+            <div id="circuit">加载中...</div>
+        </div>
+
+        <!-- 模型 API -->
+        <div class="card">
+            <h2>🤖 模型 API 延迟</h2>
+            <div id="model">加载中...</div>
+        </div>
+
+        <!-- 最近活动 -->
+        <div class="card">
+            <h2>💬 最近消息活动</h2>
+            <div id="activity">加载中...</div>
+        </div>
+    </div>
+
+    <script>
+        function updateStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('updateTime').textContent = '更新时间：' + new Date().toLocaleString('zh-CN');
+                    // 更新各个卡片
+                    updateContainers(data.containers);
+                    updateEndpoints(data.endpoints);
+                    updateTasks(data.tasks);
+                    updateCircuit(data.circuit);
+                    updateModel(data.model);
+                    updateActivity(data.activity);
+                })
+                .catch(e => console.error('Status update failed:', e));
+        }
+
+        function updateContainers(data) {
+            const el = document.getElementById('containers');
+            el.innerHTML = data.map(c => `
+                <div class="status-item">
+                    <span>${c.name}</span>
+                    <span class="badge ${c.status === 'Up' ? 'badge-ok' : 'badge-error'}">${c.status}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateEndpoints(data) {
+            const el = document.getElementById('endpoints');
+            el.innerHTML = data.map(e => `
+                <div class="status-item">
+                    <span>${e.name}</span>
+                    <span class="${e.ok ? 'status-ok' : 'status-error'}">${e.ok ? '✓' : '✗'} ${e.latency}s</span>
+                </div>
+            `).join('');
+        }
+
+        function updateTasks(data) {
+            const el = document.getElementById('tasks');
+            el.innerHTML = data.map(t => `
+                <div class="status-item">
+                    <span>${t.name}</span>
+                    <span class="${t.count > 10 ? 'status-warn' : 'status-ok'}">${t.count} 任务</span>
+                </div>
+            `).join('');
+        }
+
+        function updateCircuit(data) {
+            const el = document.getElementById('circuit');
+            if (data.open) {
+                el.innerHTML = '<span class="status-error">⚠ 有熔断器打开</span>';
+            } else {
+                el.innerHTML = '<span class="status-ok">✓ 所有熔断器正常</span>';
+            }
+        }
+
+        function updateModel(data) {
+            const el = document.getElementById('model');
+            el.innerHTML = `<div class="status-item"><span>Alibaba Cloud</span><span class="${data.latency < 3000 ? 'status-ok' : 'status-warn'}">${data.latency}ms</span></div>`;
+        }
+
+        function updateActivity(data) {
+            const el = document.getElementById('activity');
+            el.innerHTML = data.map(a => `<div class="log-entry">${a}</div>`).join('');
+        }
+
+        // Initial load
+        updateStatus();
+        setInterval(updateStatus, 10000);
+    </script>
+</body>
+</html>
