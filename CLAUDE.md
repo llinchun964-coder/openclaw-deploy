@@ -327,3 +327,43 @@ docker logs openclaw-xxx -f --tail 50
 pm2 restart master-nanchaoyi
 docker restart openclaw-tech openclaw-ops openclaw-image openclaw-naming
 ```
+
+---
+
+## 今天发现的额外坑（2026-03-24）
+
+### 坑1：agents.list 必须配置
+Worker 必须有 agents.list，否则用默认 main agent，身份混乱：
+```json
+"agents": {
+  "list": [{
+    "id": "tech",
+    "default": true,
+    "name": "技术员",
+    "workspace": "/root/.openclaw/tech/workspace"
+  }]
+}
+```
+
+### 坑2：routing.defaultAgentId 必须和 agents.list id 一致
+```json
+"routing": {"defaultAgentId": "tech"}
+```
+不能用 "main"，必须和 agents.list 里的 id 完全一致。
+
+### 坑3：workspace 挂载不能加 :ro
+```bash
+# 错误
+-v /root/.openclaw/workspace:/root/.openclaw/workspace:ro
+# 正确
+-v /root/.openclaw/workspace:/root/.openclaw/workspace
+```
+加了 :ro 会导致 Worker 写文件报 EROFS 错误。
+
+### 坑4：每个 Worker 要有独立的 workspace 目录
+```bash
+mkdir -p /root/.openclaw/tech/workspace
+mkdir -p /root/.openclaw/ops/workspace
+mkdir -p /root/.openclaw/image/workspace
+mkdir -p /root/.openclaw/naming/workspace
+```
