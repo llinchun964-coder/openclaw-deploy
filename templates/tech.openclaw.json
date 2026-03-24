@@ -54,7 +54,7 @@
         "id": "tech",
         "default": true,
         "name": "技术员",
-        "workspace": "/root/.openclaw/tech/workspace"
+        "workspace": "/root/.openclaw/tech/private-workspace"
       }
     ]
   },

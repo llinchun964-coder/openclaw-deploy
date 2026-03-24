@@ -54,7 +54,7 @@
         "id": "ops",
         "default": true,
         "name": "运营官",
-        "workspace": "/root/.openclaw/ops/workspace"
+        "workspace": "/root/.openclaw/ops/private-workspace"
       }
     ]
   },

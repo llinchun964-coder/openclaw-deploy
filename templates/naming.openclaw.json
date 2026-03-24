@@ -54,7 +54,7 @@
         "id": "naming",
         "default": true,
         "name": "南南",
-        "workspace": "/root/.openclaw/naming/workspace"
+        "workspace": "/root/.openclaw/naming/private-workspace"
       }
     ]
   },

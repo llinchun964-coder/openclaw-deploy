@@ -54,7 +54,7 @@
         "id": "image",
         "default": true,
         "name": "设计师",
-        "workspace": "/root/.openclaw/image/workspace"
+        "workspace": "/root/.openclaw/image/private-workspace"
       }
     ]
   },
