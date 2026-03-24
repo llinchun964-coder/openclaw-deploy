@@ -1,0 +1,544 @@
+/** Docker 容器监控适配器 - 南朝译多实例架构 */
+
+import { execSync } from "node:child_process";
+
+// 简单缓存机制（10 秒过期）
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const CACHE_TTL_MS = 10000; // 10 秒
+const cache = new Map<string, CacheEntry<any>>();
+
+function getCache<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+    return entry.data as T;
+  }
+  return null;
+}
+
+function setCache<T>(key: string, data: T): void {
+  cache.set(key, { data, timestamp: Date.now() });
+}
+
+function clearExpiredCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of cache.entries()) {
+    if (now - entry.timestamp >= CACHE_TTL_MS) {
+      cache.delete(key);
+    }
+  }
+}
+
+// 定期清理缓存（每分钟）
+setInterval(clearExpiredCache, 60000);
+
+export interface ContainerStatus {
+  name: string;
+  role: string;
+  status: "running" | "stopped" | "lost";
+  port: number;
+  cpu: number;
+  mem: number;
+  uptime: string;
+  restartCount?: number;
+  healthWarning?: string;
+}
+
+export interface A2AEndpoint {
+  name: string;
+  port: number;
+  ok: boolean;
+  latency: number;
+}
+
+export interface NanchaoyiStaffMember {
+  agentId: string;
+  displayName: string;
+  role: string;
+  status: "working" | "idle" | "lost";
+  port: number;
+  cpu: number;
+  mem: number;
+  uptime: string;
+  a2aOk: boolean;
+  lastActivity?: string;
+}
+
+export interface NanchaoyiMemoryStatus {
+  instance: string;
+  redisKeys: number;
+  sessionFiles: number;
+  lastUpdate?: string;
+}
+
+export interface CircuitBreakerEvent {
+  peer: string;
+  state: "open" | "closed";
+  time: string;
+  reason?: string;
+  consecutiveFailures?: number;
+}
+
+export interface NanchaoyiCircuitStatus {
+  hasActiveBreakers: boolean;
+  activeBreakers: string[];
+  recentEvents: CircuitBreakerEvent[];
+  lastCheck?: string;
+}
+
+export interface WebSocketConnectionStatus {
+  totalConnections: number;
+  failedConnections: number;
+  feishuBotStatus: "connected" | "disconnected" | "unknown";
+  recentFailures: Array<{ time: string; reason: string }>;
+  lastCheck?: string;
+}
+
+export interface RedisMemoryConfigStatus {
+  redisConnected: boolean;
+  redisKeys: number;
+  hasMemoryConfig: boolean;
+  configIssues: string[];
+  lastCheck?: string;
+}
+
+const WORKER_MAP: Record<string, { name: string; role: string; port: number; agentId: string }> = {
+  tech: { name: "CTO", role: "技术员", port: 18811, agentId: "tech-worker" },
+  ops: { name: "运营官", role: "运营官", port: 18813, agentId: "ops-worker" },
+  image: { name: "设计师", role: "设计师", port: 18815, agentId: "image-worker" },
+  naming: { name: "南南", role: "命名官", port: 18817, agentId: "naming-worker" },
+};
+
+function runCmd(cmd: string): string {
+  try {
+    return execSync(cmd, { encoding: "utf8", timeout: 5000 }).trim();
+  } catch {
+    return "";
+  }
+}
+
+export function getContainerStatuses(): ContainerStatus[] {
+  // 尝试从缓存获取
+  const cached = getCache<ContainerStatus[]>('container-statuses');
+  if (cached) return cached;
+
+  const statuses: ContainerStatus[] = [];
+
+  // Master (PM2)
+  const pm2Result = runCmd("pm2 list --no-color 2>/dev/null | grep master");
+  if (pm2Result) {
+    const memMatch = pm2Result.match(/(\d+(?:\.\d+)?)\s*mb/i);
+    const cpuMatch = pm2Result.match(/(\d+(?:\.\d+)?)\s*%/);
+    const uptimeMatch = pm2Result.match(/(\d+[mhd])/);
+
+    statuses.push({
+      name: "CEO",
+      role: "master",
+      status: pm2Result.toLowerCase().includes("online") ? "running" : "stopped",
+      port: 18789,
+      cpu: cpuMatch ? parseFloat(cpuMatch[1]) : 0,
+      mem: memMatch ? parseFloat(memMatch[1]) : 0,
+      uptime: uptimeMatch ? uptimeMatch[1] : "0m",
+    });
+  }
+
+  // Worker 容器
+  for (const [workerId, info] of Object.entries(WORKER_MAP)) {
+    const status = runCmd(`docker ps --filter 'name=openclaw-${workerId}' --format '{{.Status}}'`);
+    const stats = runCmd(`docker stats --no-stream --format '{{.CPUPerc}}\t{{.MemUsage}}' openclaw-${workerId}`);
+    const restartCount = parseInt(runCmd(`docker inspect -f '{{.RestartCount}}' openclaw-${workerId}`)) || 0;
+
+    const isUp = status.includes("Up");
+    let cpu = 0;
+    let mem = 0;
+
+    if (stats) {
+      const parts = stats.split("\t");
+      if (parts.length >= 2) {
+        cpu = parseFloat(parts[0].replace("%", "")) || 0;
+        const memVal = parts[1].split("/")[0].trim().replace("MiB", "").replace("GiB", "");
+        mem = parseFloat(memVal) || 0;
+      }
+    }
+
+    // 健康检查：运行时长过短或重启次数过多
+    let healthWarning: string | undefined;
+    const uptimeMinutes = extractUptimeMinutes(status);
+    if (isUp && uptimeMinutes !== null && uptimeMinutes < 5) {
+      healthWarning = `Recently restarted (${extractUptime(status) || "unknown"})`;
+    }
+    if (restartCount > 3) {
+      healthWarning = `High restart count: ${restartCount}`;
+    }
+
+    statuses.push({
+      name: info.name,
+      role: info.role,
+      status: isUp ? "running" : "stopped",
+      port: info.port,
+      cpu,
+      mem,
+      uptime: extractUptime(status) || "未知",
+      restartCount,
+      healthWarning,
+    });
+  }
+
+  // Redis
+  const redisStatus = runCmd("docker ps --filter 'name=redis' --format '{{.Status}}'");
+  statuses.push({
+    name: "Redis",
+    role: "记忆池",
+    status: redisStatus.includes("Up") ? "running" : "stopped",
+    port: 16379,
+    cpu: 0,
+    mem: 0,
+    uptime: extractUptime(redisStatus) || "未知",
+  });
+
+  // 缓存结果
+  setCache('container-statuses', statuses);
+
+  return statuses;
+}
+
+export function getA2AEndpoints(): A2AEndpoint[] {
+  // 尝试从缓存获取
+  const cached = getCache<A2AEndpoint[]>('a2a-endpoints');
+  if (cached) return cached;
+
+  const endpoints: A2AEndpoint[] = [];
+
+  for (const [workerId, info] of Object.entries(WORKER_MAP)) {
+    const start = Date.now();
+    const code = runCmd(`curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 http://127.0.0.1:${info.port}/.well-known/agent-card.json`);
+    const latency = Date.now() - start;
+
+    endpoints.push({
+      name: info.name,
+      port: info.port,
+      ok: code === "200",
+      latency,
+    });
+  }
+
+  // Master A2A
+  const masterStart = Date.now();
+  const masterCode = runCmd(`curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 http://127.0.0.1:18800/.well-known/agent-card.json`);
+  endpoints.unshift({
+    name: "Master",
+    port: 18800,
+    ok: masterCode === "200",
+    latency: Date.now() - masterStart,
+  });
+
+  // 缓存结果
+  setCache('a2a-endpoints', endpoints);
+
+  return endpoints;
+}
+
+function extractUptime(status: string): string | null {
+  if (!status.includes("Up")) return null;
+  const match = status.match(/Up\s*(.+?)(?:\s*\(.*\))?$/);
+  return match ? match[1].trim() : null;
+}
+
+/** 解析运行时长为分钟数，用于健康检查 */
+function extractUptimeMinutes(status: string): number | null {
+  if (!status.includes("Up")) return null;
+  const match = status.match(/Up\s*(.+?)(?:\s*\(.*\))?$/);
+  if (!match) return null;
+  const uptimeStr = match[1].trim().toLowerCase();
+
+  // 解析 "About a minute", "2 minutes", "3h", "1d" 等格式
+  const minutesMatch = uptimeStr.match(/(\d+)\s*min/);
+  if (minutesMatch) return parseInt(minutesMatch[1]);
+
+  const secondsMatch = uptimeStr.match(/(\d+)\s*s/);
+  if (secondsMatch) return Math.floor(parseInt(secondsMatch[1]) / 60);
+
+  const hoursMatch = uptimeStr.match(/(\d+)\s*h/);
+  if (hoursMatch) return parseInt(hoursMatch[1]) * 60;
+
+  const daysMatch = uptimeStr.match(/(\d+)\s*d/);
+  if (daysMatch) return parseInt(daysMatch[1]) * 24 * 60;
+
+  // "About a minute" 按 1 分钟计
+  if (uptimeStr.includes("minute")) return 1;
+
+  return 0;
+}
+
+export function getCollaborationLog(): Array<{ time: string; direction: string; summary: string }> {
+  const logs = runCmd("pm2 logs master-nanchaoyi --lines 100 --nostream 2>&1 | grep -E 'A2A|peer|dispatch|task' | tail -20");
+  const collaborations: Array<{ time: string; direction: string; summary: string }> = [];
+
+  if (logs) {
+    for (const line of logs.split("\n").filter(Boolean)) {
+      const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "").trim();
+      if (!cleanLine) continue;
+
+      let direction = "unknown";
+      if (cleanLine.toLowerCase().includes("dispatch")) {
+        direction = "main→worker";
+      } else if (cleanLine.toLowerCase().includes("peer") || cleanLine.toLowerCase().includes("a2a")) {
+        direction = "worker→worker";
+      }
+
+      const timeMatch = cleanLine.match(/(\d{2}:\d{2}:\d{2})/);
+      const time = timeMatch ? timeMatch[1] : "";
+      const summary = cleanLine.length > 60 ? cleanLine.slice(60) : cleanLine;
+
+      collaborations.push({ time, direction, summary });
+    }
+  }
+
+  return collaborations;
+}
+
+/** 获取南朝译 Worker 员工作业列表 - 用于整合到员工页面 */
+export function getNanchaoyiStaffMembers(): NanchaoyiStaffMember[] {
+  // 尝试从缓存获取
+  const cached = getCache<NanchaoyiStaffMember[]>('nanchaoyi-staff');
+  if (cached) return cached;
+
+  const members: NanchaoyiStaffMember[] = [];
+
+  for (const [workerId, info] of Object.entries(WORKER_MAP)) {
+    const status = runCmd(`docker ps --filter 'name=openclaw-${workerId}' --format '{{.Status}}'`);
+    const stats = runCmd(`docker stats --no-stream --format '{{.CPUPerc}}\t{{.MemUsage}}' openclaw-${workerId}`);
+
+    const isUp = status.includes("Up");
+    let cpu = 0;
+    let mem = 0;
+
+    if (stats) {
+      const parts = stats.split("\t");
+      if (parts.length >= 2) {
+        cpu = parseFloat(parts[0].replace("%", "")) || 0;
+        const memVal = parts[1].split("/")[0].trim().replace("MiB", "").replace("GiB", "");
+        mem = parseFloat(memVal) || 0;
+      }
+    }
+
+    // 检查 A2A 端点
+    const a2aStart = Date.now();
+    const a2aCode = runCmd(`curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 http://127.0.0.1:${info.port}/.well-known/agent-card.json`);
+    const a2aOk = a2aCode === "200";
+
+    // 获取最后活动时间（从 PM2 日志）
+    let lastActivity: string | undefined;
+    const logs = runCmd(`pm2 logs master-nanchaoyi --lines 50 --nostream 2>&1 | grep -E '${info.role}|${info.name}' | tail -1`);
+    if (logs) {
+      const timeMatch = logs.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+      if (timeMatch) {
+        lastActivity = timeMatch[1];
+      }
+    }
+
+    members.push({
+      agentId: info.agentId,
+      displayName: info.name,
+      role: info.role,
+      status: isUp ? (a2aOk ? "working" : "idle") : "lost",
+      port: info.port,
+      cpu,
+      mem,
+      uptime: extractUptime(status) || "未知",
+      a2aOk,
+      lastActivity,
+    });
+  }
+
+  // 缓存结果
+  setCache('nanchaoyi-staff', members);
+
+  return members;
+}
+
+/** 获取记忆状态 - 用于整合到记忆页面 */
+export function getNanchaoyiMemoryStatus(): NanchaoyiMemoryStatus[] {
+  const statuses: NanchaoyiMemoryStatus[] = [];
+
+  // Redis 记忆池状态
+  const redisPing = runCmd("redis-cli -p 16379 ping");
+  const redisKeysResult = runCmd("redis-cli -p 16379 dbsize");
+  const redisKeys = parseInt(redisKeysResult) || 0;
+
+  statuses.push({
+    instance: "Redis 记忆池",
+    redisKeys,
+    sessionFiles: 0,
+    lastUpdate: redisPing === "PONG" ? new Date().toISOString() : undefined,
+  });
+
+  // Workspace memory 文件
+  const memoryFileCount = runCmd("ls /root/.openclaw/workspace/memory/*.md 2>/dev/null | wc -l");
+  statuses.push({
+    instance: "Workspace 记忆",
+    redisKeys: 0,
+    sessionFiles: parseInt(memoryFileCount) || 0,
+    lastUpdate: undefined,
+  });
+
+  // 各 Worker 的会话文件
+  for (const [workerId, info] of Object.entries(WORKER_MAP)) {
+    const sessionPath = `/root/.openclaw/workspace/sessions`;
+    const sessionCount = runCmd(`find ${sessionPath} -name '*${workerId}*' 2>/dev/null | wc -l`);
+
+    statuses.push({
+      instance: info.name,
+      redisKeys: 0,
+      sessionFiles: parseInt(sessionCount) || 0,
+      lastUpdate: undefined,
+    });
+  }
+
+  return statuses;
+}
+
+/** 获取电路熔断状态 - 用于总览页告警 */
+export function getNanchaoyiCircuitStatus(): NanchaoyiCircuitStatus {
+  const logs = runCmd("pm2 logs master-nanchaoyi --lines 200 --nostream 2>&1 | grep -E 'peer\\.circuit\\.(open|closed)' | tail -50");
+  const events: CircuitBreakerEvent[] = [];
+  const activeBreakers = new Set<string>();
+
+  if (logs) {
+    for (const line of logs.split("\n").filter(Boolean)) {
+      const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "").trim();
+      if (!cleanLine) continue;
+
+      // 解析时间
+      const timeMatch = cleanLine.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+      const time = timeMatch ? timeMatch[1] : "";
+
+      // 解析熔断事件
+      const isOpen = cleanLine.includes("peer.circuit.open");
+      const isClosed = cleanLine.includes("peer.circuit.closed");
+
+      if (isOpen || isClosed) {
+        const peerMatch = cleanLine.match(/"peer":"([^"]+)"/);
+        const reasonMatch = cleanLine.match(/"reason":"([^"]+)"/);
+        const failuresMatch = cleanLine.match(/"consecutive_failures":(\d+)/);
+
+        if (peerMatch) {
+          const peer = peerMatch[1];
+          events.push({
+            peer,
+            state: isOpen ? "open" : "closed",
+            time,
+            reason: reasonMatch ? reasonMatch[1] : undefined,
+            consecutiveFailures: failuresMatch ? parseInt(failuresMatch[1]) : undefined,
+          });
+
+          // 跟踪活跃熔断器
+          if (isOpen) {
+            activeBreakers.add(peer);
+          } else if (isClosed) {
+            activeBreakers.delete(peer);
+          }
+        }
+      }
+    }
+  }
+
+  // 反转事件顺序，最新的在前
+  events.reverse();
+
+  return {
+    hasActiveBreakers: activeBreakers.size > 0,
+    activeBreakers: Array.from(activeBreakers),
+    recentEvents: events.slice(0, 10),
+    lastCheck: new Date().toISOString(),
+  };
+}
+
+/** 获取 WebSocket 连接状态 - 监控飞书 Bot 和连接失败 */
+export function getNanchaoyiWebSocketStatus(): WebSocketConnectionStatus {
+  const logs = runCmd("pm2 logs master-nanchaoyi --lines 200 --nostream 2>&1 | grep -E '\\[ws\\]|\\[feishu\\]' | tail -100");
+  const recentFailures: Array<{ time: string; reason: string }> = [];
+  let feishuBotStatus: "connected" | "disconnected" | "unknown" = "unknown";
+
+  if (logs) {
+    for (const line of logs.split("\n").filter(Boolean)) {
+      const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "").trim();
+      if (!cleanLine) continue;
+
+      // 检查飞书 Bot 状态
+      if (cleanLine.includes("feishu[coo-bot]") && cleanLine.includes("connected")) {
+        feishuBotStatus = "connected";
+      }
+      if (cleanLine.includes("feishu[coo-bot]") && cleanLine.includes("disconnected")) {
+        feishuBotStatus = "disconnected";
+      }
+
+      // 检查 WebSocket 连接失败
+      const wsFailed = cleanLine.includes("[ws]") && cleanLine.includes("closed before connect");
+      if (wsFailed) {
+        const timeMatch = cleanLine.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+        const reasonMatch = cleanLine.match(/code=(\d+)\s+reason=(\S+)/);
+        recentFailures.push({
+          time: timeMatch ? timeMatch[1] : "",
+          reason: reasonMatch ? `code=${reasonMatch[1]}` : "unknown",
+        });
+      }
+    }
+  }
+
+  // 反转，最新的在前
+  recentFailures.reverse();
+
+  return {
+    totalConnections: 0,
+    failedConnections: recentFailures.length,
+    feishuBotStatus,
+    recentFailures: recentFailures.slice(0, 10),
+    lastCheck: new Date().toISOString(),
+  };
+}
+
+/** 检查 Redis 记忆配置状态 */
+export function getNanchaoyiRedisMemoryStatus(): RedisMemoryConfigStatus {
+  const configIssues: string[] = [];
+  let redisConnected = false;
+  let redisKeys = 0;
+  let hasMemoryConfig = false;
+
+  // 检查 Redis 连接
+  const redisPing = runCmd("redis-cli -p 16379 ping");
+  redisConnected = redisPing === "PONG";
+
+  if (redisConnected) {
+    const redisKeysResult = runCmd("redis-cli -p 16379 dbsize");
+    redisKeys = parseInt(redisKeysResult) || 0;
+
+    if (redisKeys === 0) {
+      configIssues.push("Redis 记忆池为空，未启用跨实例记忆共享");
+    }
+  } else {
+    configIssues.push("Redis 无法连接");
+  }
+
+  // 检查配置文件中是否有 memory 配置
+  const configContent = runCmd("cat /root/.openclaw/master/openclaw.json 2>/dev/null");
+  if (configContent) {
+    if (!configContent.includes('"memory"') && !configContent.includes('"redis"')) {
+      hasMemoryConfig = false;
+      configIssues.push("配置文件中未找到 memory 或 redis 配置");
+    } else {
+      hasMemoryConfig = true;
+    }
+  }
+
+  return {
+    redisConnected,
+    redisKeys,
+    hasMemoryConfig,
+    configIssues,
+    lastCheck: new Date().toISOString(),
+  };
+}

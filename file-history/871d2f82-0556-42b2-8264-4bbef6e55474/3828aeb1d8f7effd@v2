@@ -1,0 +1,31 @@
+---
+name: 实时通知中心
+description: OpenClaw Control Center 实时告警系统，监控电路熔断/容器重启/飞书掉线/Worker 宕机/A2A 失败，通过飞书推送
+type: project
+---
+
+**实时通知中心 - 2026-03-23**
+
+**Why:**
+- 需要及时了解系统异常情况（熔断、容器重启、Worker 宕机等）
+- 通过飞书推送确保告警能触达管理员
+
+**How to apply:**
+- 访问 `http://198.200.39.21:4310/?section=alerts` 查看实时告警中心
+- 告警信息通过飞书 Bot 推送给配对用户
+- 每 30 秒自动检测一次告警事件
+
+**告警类型:**
+1. 电路熔断 (circuit_breaker) - critical
+2. 容器重启 (container_restart) - warn
+3. 飞书掉线 (feishu_offline) - critical
+4. Worker 宕机 (worker_down) - critical
+5. A2A 端点失败 (a2a_failed) - warn
+
+**API 端点:**
+- GET /api/alerts/current - 当前活动告警
+- GET /api/alerts/history - 告警历史（最多 100 条）
+- POST /api/alerts/test - 发送测试告警
+
+**核心文件:**
+- `/root/openclaw-control-center/src/adapters/alert-notifier.ts` - 告警检测与推送

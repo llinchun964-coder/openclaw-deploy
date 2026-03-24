@@ -1,0 +1,23 @@
+---
+name: Redis 记忆池未启用
+description: 南朝译多实例架构中 Redis 记忆池未启用，跨实例记忆共享未配置
+type: project
+---
+
+**Redis 记忆池状态 - 2026-03-23**
+
+**Why:**
+- 配置文件中未找到 memory 或 redis 配置
+- 各 Worker 实例之间没有共享记忆
+- 跨实例协作时无法共享上下文记忆
+
+**How to apply:**
+- 监控系统显示 Redis 连接正常但 dbsize=0
+- Control Center 记忆页显示"Redis 记忆池为空，未启用跨实例记忆共享"
+- 如需启用，需在 openclaw.json 中添加 memory 配置并重启所有实例
+
+**当前状态:**
+- Redis 服务：运行正常（端口 16379）
+- Redis Keys：0
+- 记忆共享：未启用
+- 各实例记忆：独立存储在会话文件中

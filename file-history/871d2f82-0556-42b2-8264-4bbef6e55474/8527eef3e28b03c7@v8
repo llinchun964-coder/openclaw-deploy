@@ -1,0 +1,17 @@
+# MEMORY.md
+
+## User
+
+- [agent_model_preference](user_agent_model.md) — 主会话用 Claude 3.5 Sonnet，子 Agent 可指定 Haiku 4.5 模型
+
+## Feedback
+
+- [monitor_webpage_bugfix](feedback_monitor_fix.md) — 监控网页 web-monitor.py 的 deque 切片 bug 修复方案
+- [monitor_task_management](feedback_monitor_task.md) — 监控网页任务管理功能添加
+- [control_center_integration](feedback_control_center_integration.md) — Control Center 集成南朝译多实例监控方案
+
+## Project
+
+- [监控系统统一方案](project_monitor_unified.md) — 监控系统从 Python 迁移到 Control Center，全模块整合（总览/员工/记忆/协作/监控）
+- [Redis 记忆池未启用](redis_memory_status.md) — Redis 记忆池运行正常但未配置 memory，跨实例记忆共享未启用
+- [实时通知中心](realtime_alert_system.md) — 实时告警系统监控电路熔断/容器重启/飞书掉线/Worker 宕机，飞书推送

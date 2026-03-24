@@ -131,7 +131,11 @@
       "Bash(head -3 echo \"\" echo \"--------------------------------------------\" echo \"2. 员工页 \\(?section=team&lang=zh\\)\" echo \"--------------------------------------------\" curl -s \"http://127.0.0.1:4310/?section=team&lang=zh\")",
       "Bash(head -3 echo \"\" echo \"--------------------------------------------\" echo \"4. 协作页 \\(?section=collaboration&lang=zh\\)\" echo \"--------------------------------------------\" curl -s \"http://127.0.0.1:4310/?section=collaboration&lang=zh\")",
       "Bash(head -1 echo \"\" echo \"--------------------------------------------\" echo \"5. 南朝译监控页 \\(?section=nanchaoyi-monitor&lang=zh\\)\" echo \"--------------------------------------------\" curl -s \"http://127.0.0.1:4310/?section=nanchaoyi-monitor&lang=zh\")",
-      "Bash(redis-cli -p 16379 CONFIG GET requirepass)"
+      "Bash(redis-cli -p 16379 CONFIG GET requirepass)",
+      "Bash(docker port:*)",
+      "Read(//tmp/**)",
+      "Bash(tr '>' '\\\\n')",
+      "Bash(node:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
