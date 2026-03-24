@@ -1,3 +1,49 @@
+# 操作规则（必须遵守）
+
+## 修改前必须先做这三步：
+1. 运行 `docker ps --format "table {{.Names}}\t{{.Ports}}"` 确认当前端口
+2. 运行 `pm2 list` 确认Master状态
+3. 运行 `bash /root/claw-fix.sh` 的dry-run，了解当前状态
+
+## 禁止行为：
+- 禁止直接修改配置后重启，必须先备份
+- 禁止同时重启所有容器
+- 禁止修改端口规划（端口规划见下方）
+- 禁止用docker-compose
+
+## 修改前必须备份：
+cp /root/.openclaw/xxx/openclaw.json /root/.openclaw/xxx/openclaw.json.bak
+
+## 端口规划（不可更改）：
+- Master: gateway=18789, A2A=18800
+- 技术员: gateway=18795, A2A=18811
+- 运营官: gateway=18796, A2A=18802
+- 设计师: gateway=18797, A2A=18803
+- 南南: gateway=18798, A2A=18804
+- Redis: 16379
+# 操作规则（必须遵守）
+
+## 修改前必须先做这三步：
+1. 运行 `docker ps --format "table {{.Names}}\t{{.Ports}}"` 确认当前端口
+2. 运行 `pm2 list` 确认Master状态
+3. 运行 `bash /root/claw-fix.sh` 的dry-run，了解当前状态
+
+## 禁止行为：
+- 禁止直接修改配置后重启，必须先备份
+- 禁止同时重启所有容器
+- 禁止修改端口规划（端口规划见下方）
+- 禁止用docker-compose
+
+## 修改前必须备份：
+cp /root/.openclaw/xxx/openclaw.json /root/.openclaw/xxx/openclaw.json.bak
+
+## 端口规划（不可更改）：
+- Master: gateway=18789, A2A=18800
+- 技术员: gateway=18795, A2A=18811
+- 运营官: gateway=18796, A2A=18802
+- 设计师: gateway=18797, A2A=18803
+- 南南: gateway=18798, A2A=18804
+- Redis: 16379
 # OpenClaw 多实例部署规范 v4（最终版）
 # 基于实际踩坑经验，2026-03-23
 

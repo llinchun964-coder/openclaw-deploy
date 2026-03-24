@@ -135,7 +135,8 @@
       "Bash(docker port:*)",
       "Read(//tmp/**)",
       "Bash(tr '>' '\\\\n')",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(redis-cli -p 16379 dbsize)"
     ]
   },
   "enableAllProjectMcpServers": true,
