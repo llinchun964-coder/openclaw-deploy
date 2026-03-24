@@ -1,0 +1,26 @@
+{
+  "proxy": {
+    "type": "socks5",
+    "host": "59.80.45.224",
+    "port": 2021,
+    "username": "qwde23y1",
+    "password": "qwde23y1"
+  },
+  "accounts": {
+    "test-account": {
+      "username": "17685217212",
+      "password": "jxy123400",
+      "platform": "xiaohongshu",
+      "status": "active",
+      "created_at": "2026-03-07",
+      "purpose": "成人改名业务测试"
+    }
+  },
+  "settings": {
+    "auto_login": true,
+    "session_persistence": true,
+    "proxy_rotation": false,
+    "risk_monitoring": true,
+    "content_review": true
+  }
+}
