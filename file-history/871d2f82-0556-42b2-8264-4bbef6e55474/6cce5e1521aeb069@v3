@@ -1,0 +1,368 @@
+/** 实时通知适配器 - 飞书告警推送 */
+
+import { execSync } from "node:child_process";
+
+export interface AlertEvent {
+  type: "circuit_breaker" | "container_restart" | "feishu_offline" | "worker_down" | "a2a_failed";
+  severity: "critical" | "warn" | "info";
+  title: string;
+  message: string;
+  timestamp: string;
+  details?: Record<string, string | number>;
+}
+
+export interface AlertConfig {
+  feishuWebhook?: string;
+  feishuBotAppId?: string;
+  enabled: boolean;
+  minSeverity: "critical" | "warn" | "info";
+}
+
+// 告警发送记录缓存（避免重复告警）
+const recentAlerts = new Map<string, number>(); // key: alertType+title, value: timestamp
+const ALERT_DEDUP_MS = 300000; // 5 分钟内不重复告警
+
+// 告警历史记录（最多保留 100 条）
+const alertHistory: AlertEvent[] = [];
+const MAX_HISTORY = 100;
+
+const FEISHU_CONFIG: AlertConfig = {
+  enabled: true,
+  minSeverity: "warn",
+};
+
+function runCmd(cmd: string): string {
+  try {
+    return execSync(cmd, { encoding: "utf8", timeout: 5000 }).trim();
+  } catch {
+    return "";
+  }
+}
+
+/** 检查是否可以发送告警（去重） */
+function canSendAlert(type: string, title: string): boolean {
+  const key = `${type}:${title}`;
+  const lastSent = recentAlerts.get(key);
+  if (lastSent && Date.now() - lastSent < ALERT_DEDUP_MS) {
+    return false;
+  }
+  recentAlerts.set(key, Date.now());
+  return true;
+}
+
+/** 获取飞书配置 */
+function getFeishuConfig(): { appId?: string; appSecret?: string } {
+  try {
+    const config = execSync("cat /root/.openclaw/master/openclaw.json 2>/dev/null", { encoding: "utf8" });
+    const json = JSON.parse(config);
+    const account = json?.channels?.feishu?.accounts?.["coo-bot"];
+    return {
+      appId: account?.appId,
+      appSecret: account?.appSecret,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** 获取用户 ID（从 Redis 或配置） */
+function getTargetUserId(): string | null {
+  try {
+    // 尝试从 Redis 获取配对的飞书用户
+    const userId = runCmd("redis-cli -p 16379 GET 'feishu:user_id' 2>/dev/null");
+    if (userId) return userId;
+
+    // 尝试从 PM2 日志中最近的消息用户
+    const logs = runCmd("pm2 logs master-nanchaoyi --lines 100 --nostream 2>&1 | grep -oE 'ou_[a-zA-Z0-9]+' | head -1");
+    if (logs) return logs;
+  } catch {
+    // 忽略
+  }
+  return null;
+}
+
+/** 构建飞书消息卡片 */
+function buildFeishuCard(alert: AlertEvent): { msg_type: string; card: Record<string, unknown> } {
+  const severityColors: Record<string, string> = {
+    critical: "red",
+    warn: "orange",
+    info: "blue",
+  };
+
+  const severityIcons: Record<string, string> = {
+    critical: "🚨",
+    warn: "⚠️",
+    info: "ℹ️",
+  };
+
+  return {
+    msg_type: "interactive",
+    card: {
+      header: {
+        template: severityColors[alert.severity] || "blue",
+        title: {
+          tag: "plain_text",
+          content: `${severityIcons[alert.severity]} ${alert.title}`,
+        },
+      },
+      elements: [
+        {
+          tag: "div",
+          text: {
+            tag: "lark_md",
+            content: alert.message,
+          },
+        },
+        {
+          tag: "hr",
+        },
+        {
+          tag: "div",
+          text: {
+            tag: "lark_md",
+            content: `**类型：** ${alert.type}\n**时间：** ${new Date(alert.timestamp).toLocaleString("zh-CN")}`,
+          },
+        },
+        {
+          tag: "action",
+          actions: [
+            {
+              tag: "button",
+              text: {
+                tag: "plain_text",
+                content: "查看监控面板",
+              },
+              url: "http://198.200.39.21:4310/?section=nanchaoyi-monitor",
+              type: "primary",
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+/** 通过飞书 API 发送消息 */
+function sendFeishuMessage(userId: string, content: { msg_type: string; card: Record<string, unknown> }, alertTitle: string): boolean {
+  const { appId, appSecret } = getFeishuConfig();
+  if (!appId || !appSecret) {
+    console.log("[Alert] 飞书 AppID 或 AppSecret 未配置，跳过发送");
+    return false;
+  }
+
+  try {
+    // 获取 tenant_access_token
+    const tokenResponse = execSync(
+      `curl -s -X POST "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal" ` +
+      `-H "Content-Type: application/json" ` +
+      `-d '{"app_id":"${appId}","app_secret":"${appSecret}"}'`,
+      { encoding: "utf8", timeout: 5000 }
+    );
+    const tokenData = JSON.parse(tokenResponse);
+    const token = tokenData.tenant_access_token;
+
+    if (!token) {
+      console.log("[Alert] 获取飞书 token 失败：" + tokenResponse);
+      return false;
+    }
+
+    // 发送消息
+    const payload = {
+      receive_id: userId,
+      msg_type: "interactive",
+      content: JSON.stringify(content.card),
+    };
+
+    const messageResponse = execSync(
+      `curl -s -X POST "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=open_id" ` +
+      `-H "Authorization: Bearer ${token}" ` +
+      `-H "Content-Type: application/json" ` +
+      `-d '${JSON.stringify(payload)}'`,
+      { encoding: "utf8", timeout: 5000 }
+    );
+
+    const messageData = JSON.parse(messageResponse);
+    if (messageData.code === 0 || messageData.success === true) {
+      console.log(`[Alert] 飞书告警发送成功：${alertTitle}`);
+      return true;
+    } else {
+      console.log(`[Alert] 飞书告警发送失败：${messageResponse}`);
+      return false;
+    }
+  } catch (error: any) {
+    console.log(`[Alert] 发送飞书消息异常：${error.message || error}`);
+    return false;
+  }
+}
+
+/** 检测当前告警事件 */
+export function detectAlertEvents(): AlertEvent[] {
+  const alerts: AlertEvent[] = [];
+  const now = new Date().toISOString();
+
+  // 1. 检测电路熔断 - 只检测最近 5 分钟内的新 open 事件，且没有对应的 closed 事件
+  const circuitOpenLogs = runCmd("pm2 logs master-nanchaoyi --lines 100 --nostream 2>&1 | grep 'peer.circuit.open' | tail -10");
+  const circuitClosedLogs = runCmd("pm2 logs master-nanchaoyi --lines 100 --nostream 2>&1 | grep 'peer.circuit.closed' | tail -10");
+
+  if (circuitOpenLogs) {
+    // 获取已恢复的 peer 列表
+    const recoveredPeers = new Set<string>();
+    if (circuitClosedLogs) {
+      for (const line of circuitClosedLogs.split("\n").filter(Boolean)) {
+        const peerMatch = line.match(/"peer":"([^"]+)"/);
+        if (peerMatch) recoveredPeers.add(peerMatch[1]);
+      }
+    }
+
+    // 只告警未恢复的 peer
+    const peers = new Set<string>();
+    for (const line of circuitOpenLogs.split("\n").filter(Boolean)) {
+      const peerMatch = line.match(/"peer":"([^"]+)"/);
+      if (peerMatch && !recoveredPeers.has(peerMatch[1])) {
+        peers.add(peerMatch[1]);
+      }
+    }
+
+    for (const peer of peers) {
+      if (canSendAlert("circuit_breaker", peer)) {
+        alerts.push({
+          type: "circuit_breaker",
+          severity: "critical",
+          title: `熔断器触发 - ${peer}`,
+          message: `${peer} 因连续失败触发熔断保护，已暂时隔离。请检查该 Worker 的健康状态。`,
+          timestamp: now,
+          details: { peer },
+        });
+      }
+    }
+  }
+
+  // 2. 检测容器重启（运行时长 < 5 分钟）
+  const workers = [
+    { id: "tech", name: "CTO" },
+    { id: "ops", name: "运营官" },
+    { id: "image", name: "设计师" },
+    { id: "naming", name: "南南" },
+  ];
+  for (const worker of workers) {
+    const status = runCmd(`docker ps --filter 'name=openclaw-${worker.id}' --format '{{.Status}}'`);
+    if (status.includes("Up")) {
+      const uptimeMatch = status.match(/Up\s*(.+?)(?:\s*\(.*\))?$/);
+      if (uptimeMatch) {
+        const uptime = uptimeMatch[1].trim().toLowerCase();
+        // 检查是否是刚重启（秒级或 1-2 分钟）
+        if (uptime.includes("second") || uptime.includes("seconds") ||
+            uptime.match(/^up\s*1-?[2]?\s*min/i)) {
+          if (canSendAlert("container_restart", worker.name)) {
+            alerts.push({
+              type: "container_restart",
+              severity: "warn",
+              title: `容器重启 - ${worker.name}`,
+              message: `${worker.name} 容器刚刚重启（运行时长：${uptime}），可能存在稳定性问题。`,
+              timestamp: now,
+              details: { uptime, worker: worker.name },
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // 3. 检测飞书 Bot 掉线
+  const feishuLogs = runCmd("pm2 logs master-nanchaoyi --lines 100 --nostream 2>&1 | grep -E 'feishu.*disconnected|websocket.*closed' | tail -5");
+  if (feishuLogs && feishuLogs.split("\n").length >= 3) {
+    if (canSendAlert("feishu_offline", "飞书连接")) {
+      alerts.push({
+        type: "feishu_offline",
+        severity: "critical",
+        title: "飞书 Bot 连接异常",
+        message: "检测到飞书 Bot WebSocket 连接多次断开，可能影响消息收发。",
+        timestamp: now,
+        details: { recentErrors: feishuLogs.split("\n").length },
+      });
+    }
+  }
+
+  // 4. 检测 Worker 宕机
+  for (const worker of workers) {
+    const status = runCmd(`docker ps --filter 'name=openclaw-${worker.id}' --format '{{.Status}}'`);
+    if (!status || !status.includes("Up")) {
+      if (canSendAlert("worker_down", worker.name)) {
+        alerts.push({
+          type: "worker_down",
+          severity: "critical",
+          title: `Worker 宕机 - ${worker.name}`,
+          message: `${worker.name} 容器已停止运行，请立即检查！`,
+          timestamp: now,
+          details: { worker: worker.name },
+        });
+      }
+    }
+  }
+
+  // 5. 检测 A2A 端点失败
+  const a2aFailed: string[] = [];
+  const a2aPorts: Record<string, number> = {
+    "CTO": 18811,
+    "运营官": 18802,
+    "设计师": 18803,
+    "南南": 18804,
+  };
+  for (const [name, port] of Object.entries(a2aPorts)) {
+    const code = runCmd(`curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 http://127.0.0.1:${port}/.well-known/agent-card.json`);
+    if (code !== "200") {
+      a2aFailed.push(name);
+    }
+  }
+  if (a2aFailed.length > 0) {
+    if (canSendAlert("a2a_failed", a2aFailed.join(","))) {
+      alerts.push({
+        type: "a2a_failed",
+        severity: "warn",
+        title: `A2A 端点异常 - ${a2aFailed.length}个`,
+        message: `以下 Worker 的 A2A 端点无法访问：${a2aFailed.join(", ")}`,
+        timestamp: now,
+        details: { failedWorkers: a2aFailed.join(",") },
+      });
+    }
+  }
+
+  return alerts;
+}
+
+/** 发送告警（飞书 + 记录） */
+export function sendAlert(alert: AlertEvent): void {
+  console.log(`[Alert] ${alert.severity.toUpperCase()}: ${alert.title}`);
+
+  // 记录到历史
+  alertHistory.unshift(alert);
+  if (alertHistory.length > MAX_HISTORY) {
+    alertHistory.pop();
+  }
+
+  // 发送飞书通知
+  const userId = getTargetUserId();
+  if (userId) {
+    const card = buildFeishuCard(alert);
+    sendFeishuMessage(userId, card, alert.title);
+  } else {
+    console.log("[Alert] 未找到飞书用户 ID，跳过发送");
+  }
+}
+
+/** 获取告警历史 */
+export function getAlertHistory(): AlertEvent[] {
+  return alertHistory;
+}
+
+/** 定时检测并发送告警（每 30 秒） */
+export function startAlertMonitor(): void {
+  console.log("[Alert] 启动告警监控（每 30 秒检测）");
+
+  setInterval(() => {
+    const alerts = detectAlertEvents();
+    for (const alert of alerts) {
+      sendAlert(alert);
+    }
+  }, 30000);
+}
