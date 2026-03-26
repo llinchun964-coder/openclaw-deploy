@@ -49,3 +49,8 @@
 - 现象：设计师收到图片任务，去找nano-banana-pro-prompts-recommend-skill，文件不存在
 - 原因：设计师的SOUL.md里可能有旧的技能引用，优先级高于TOOLS.md
 - 解决：在设计师SOUL.md里明确写"生成图片只用TOOLS.md里的curl命令，禁止找其他技能"
+
+## Master读文件路径错误（2026-03-26）
+- 现象：Master去读 /root/.openclaw/naming/workspace/ 报文件不存在
+- 原因：正确路径是 /root/.openclaw/naming/private-workspace/，少了private-
+- 解决：在SOUL.md里写死所有员工的正确路径
