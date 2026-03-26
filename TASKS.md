@@ -9,7 +9,10 @@
 - [ ] DESIGN-002 2个版本头像（专业版+卡通版）初稿交付
 - [ ] DESIGN-003 3款统一封面模板初稿交付
 - [ ] DESIGN-004 内文配图模板初稿交付
-- [ ] DESIGN-001 3张封面图（职场风/古风/科技风）交付
+- [x] DESIGN-001 3张封面图（职场风/古风/科技风）交付，文件已验证：
+  - 职场风：/root/.openclaw/image/private-workspace/images/cover-professional.png
+  - 古风：/root/.openclaw/image/private-workspace/images/cover-ancient.png
+  - 科技风：/root/.openclaw/image/private-workspace/images/cover-tech.png
 
 ## 运营官
 - [ ] OPS-001 账号资料完整（头像/简介/背景图），后台配置完毕
