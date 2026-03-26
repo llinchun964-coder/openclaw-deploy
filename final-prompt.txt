@@ -1,0 +1,17 @@
+### prompt_source
+nano-banana
+
+### prompt_id
+12741
+
+### prompt_title
+小红书封面图：成年人改名5大误区
+
+### final_prompt
+Xiaohongshu (Little Red Book) cover image, 3:4 vertical ratio, 1080x1440, high quality, professional social media design. Bold, eye-catching title at top: "5 BIG MISTAKES Adults Make When Changing Names!", subtitle below: "Nan Chaoyi Teacher's Guide", clean and modern design, brand color #FF2442 (Xiaohongshu red) as accent, background in soft light gray, simple geometric elements, logo in bottom right corner at 20% opacity, slogan "Nan Chaoyi · Make Names More Powerful" at bottom, professional typography, high contrast, easy to read on mobile, no AI artifacts, no watermark.
+
+### generation_provider
+Seedream
+
+### generation_model
+doubao-seedream-5-0-260128

@@ -3,6 +3,7 @@
     "@troykelly/openclaw-projects": "^0.0.50",
     "browserclaw": "^0.4.0",
     "ocft": "^1.2.1",
-    "openclaw-tavily": "^0.2.1"
+    "openclaw-tavily": "^0.2.1",
+    "redis": "^5.11.0"
   }
 }

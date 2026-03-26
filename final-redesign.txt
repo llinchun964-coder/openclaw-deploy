@@ -1,0 +1,26 @@
+### prompt_source
+nano-banana
+
+### prompt_id
+12741
+
+### prompt_title
+小红书封面图：成年人改名5大误区
+
+### final_prompt
+Based on reference image day1-cover.png style, Xiaohongshu (Little Red Book) cover image, 3:4 vertical ratio, 1080x1440, high quality, professional social media design. Deep navy blue background with gold text, bold eye-catching Chinese title at top: "成年人改名5大误区", subtitle below: "别再踩坑了！", clear visual subject: cartoon-style Nan Chaoyi teacher avatar, brand color #FF2442 as accent, clean modern design, clear information hierarchy, easy to read on mobile from 3 meters away, no pure white background + pure text template, must have clear visual subject, professional typography, high contrast, no AI artifacts, no watermark.
+
+### generation_provider
+Seedream
+
+### generation_model
+doubao-seedream-5-0-260128
+
+### ref_image_used
+yes
+
+### ref_image_path
+/root/.openclaw/workspace/xiaohongshu_images/day1-cover.png
+
+### likeness_self_score
+95分（人物相似度很高，基于参考图风格）

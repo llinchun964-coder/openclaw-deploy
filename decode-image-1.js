@@ -1,0 +1,10 @@
+const fs = require('fs');
+
+// 读取JSON输出
+const json = `{"model":"doubao-seedream-5-0-260128","created":1774450051,"data":[{"b64_json":"iVBORw0KGgoAAAANSUhEUgAAAtAAAAXACAYAAABfKWZCAAAACXBIWXMAAAsTAAALEwEAmpwYAAAKTWlDQ1BQaG90b3Nob3AgSUNDIHByb2ZpbGUAAHjanVNnVFPpFj333vRCS4iAlEtvUhUIIFJCi4AUkSYqIQkQSoghodkVUcERRUUEG8igiAOOjoCMFVEsDIoK2AfkIaKOg6OIrisYbPC4+P9f4YuJCs7GoiqhPNLMNcTvh9Nf1Ta+mWHTzSy7W872dNx1ZRa+mWty/W4/n/AAzYfV5fkxNk9j7lmY/1tZ9CWMMos/crx/8AW9r/AMcpzf7fxhx/P8KxOAVssSCoqIoAAAIAAACgCCgAAHSACCoCgAIoCCoACggoCKAAACgAgoIAIAoqCoAKgAACAAACiKAAIAAACigIACiKgAAAAAAAAioqAIqCgAAKCCgIoAAKgKiAbKAgAoAAqKAAAACCgIAAAIACgAAAIoACoIAAAAACgAAACKAgoAAACggoCAACoAAAAAAAAAKgAAqKAAAgAAAAACKAAAAAAAHSAAioiqIoKIAAAAKgKgAoCCoAAAGxsIACgCoAuwAbci7ABsCjKNLx+5vVnxCn04YuyvS8fuY1bP8AQKfThrdT8H5z+Yy8Hx/r/DEoeTxh5M7GKCok80ss1tyW9Ox/7RZ+mWJzzSy3W0e409/VNqPnlrcv1uP5/wAM2H1eX5MTZTa+5Vje/nFv/wAcsW5mVW+TgqxPfzij/wAZzT4fxhx/P8KxMIWWwxIAqCKgCKAgAALsAAACgigCAAAAAAAAAAAbAAbAC7AAqAAAguxsAAAAAAAAAigPEUBBUBQAVFBBFBUFADoAAAQAFRQBAXYEFAABAAVBUADYAFQAAAAQVFAA2UAAAEEUBQAAAAAANjYBFNgQBQAQFRQQAAUARRUEURUBQRTYAABBQEAAAAF2ARTY2AAAAAABBUAAAF2AQUBFABFAQAFDYARUAAADY2ARUAF2QBTY2AA2ABQQWUFQFQQ3VAf/2Q==","size":"1728x2304"}],"usage":{"generated_images":1,"output_tokens":15552,"total_tokens":15552}}`;
+
+const data = JSON.parse(json);
+const b64 = data.data[0].b64_json;
+const buffer = Buffer.from(b64, 'base64');
+fs.writeFileSync('/root/.openclaw/workspace/xiaohongshu_images/new/cover-1-workplace.png', buffer);
+console.log('Saved: /root/.openclaw/workspace/xiaohongshu_images/new/cover-1-workplace.png');
