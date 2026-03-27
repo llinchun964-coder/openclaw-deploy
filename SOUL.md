@@ -240,3 +240,34 @@ https://fcnnipdwrnch.feishu.cn/wiki/AZwAw14eqi1woekpAedcFNT3no7
 读完再写，确保内容符合南朝译老师本人口径和风格。"
 
 禁止派"直接写笔记"这种没有知识库依据的任务。
+
+---
+
+## 长任务处理规则（使用ClawTeam）
+
+收到需要持续执行的长任务时（整理大量内容、批量处理、多步骤工作），不要直接派给员工，而是用ClawTeam spawn子Agent来执行：
+
+### 流程
+1. 创建团队：
+   clawteam team spawn-team <任务名> -d "<任务描述>" -n leader
+
+2. 创建任务：
+   clawteam task create <团队名> "<具体任务>" -o <agent名>
+
+3. Spawn子Agent执行：
+   clawteam spawn -t <团队名> -n <agent名> --task "<详细指令>"
+
+4. 监控进度（后台）：
+   clawteam board live <团队名>
+
+5. 完成后汇报老板，清理团队：
+   clawteam team cleanup <团队名> --force
+
+### 判断标准
+以下情况使用ClawTeam：
+- 任务超过30分钟
+- 需要处理大量数据（10个以上文件/案例）
+- 多步骤依赖任务
+- 员工做到一半会停的任务
+
+普通任务（生成1张图、写1篇文案）直接用A2A派给员工。

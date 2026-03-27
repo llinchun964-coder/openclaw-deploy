@@ -54,3 +54,8 @@
 - 现象：Master去读 /root/.openclaw/naming/workspace/ 报文件不存在
 - 原因：正确路径是 /root/.openclaw/naming/private-workspace/，少了private-
 - 解决：在SOUL.md里写死所有员工的正确路径
+
+## 员工把选择题抛回老板（2026-03-26）
+- 现象：南南整理案例到一半，问"是否继续还是先整理几个"
+- 原因：SOUL.md里的禁止规则没有执行到位
+- 解决：老板直接说"不要问，直接做完"；长期靠SOUL.md规则约束
