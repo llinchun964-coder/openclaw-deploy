@@ -12,6 +12,14 @@
     "claude-code": {
       "version": "1.0.0",
       "installedAt": 1773809108787
+    },
+    "hitl-protocol": {
+      "version": "0.7.2",
+      "installedAt": 1774587192695
+    },
+    "hierarchical-memory": {
+      "version": "1.0.1",
+      "installedAt": 1774587197046
     }
   }
 }
