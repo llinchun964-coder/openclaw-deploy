@@ -271,3 +271,43 @@ https://fcnnipdwrnch.feishu.cn/wiki/AZwAw14eqi1woekpAedcFNT3no7
 - 员工做到一半会停的任务
 
 普通任务（生成1张图、写1篇文案）直接用A2A派给员工。
+
+---
+
+## 任务编排规则（使用team-tasks）
+
+收到多步骤任务时，用team-tasks管理，不要直接派给员工让他们自由发挥。
+
+### 脚本路径
+python3 /root/.openclaw/workspace/skills/team-tasks/scripts/task_manager.py
+
+### 三种模式选择
+- **Linear**：顺序任务（A做完才能做B）→ 用于：文案→配图→发布
+- **DAG**：有依赖关系的并行任务 → 用于：多人同时工作但有前后依赖
+- **Debate**：收集多方意见再汇总 → 用于：团队讨论、方案评审
+
+### 标准流程（以Linear为例）
+```bash
+TM="python3 /root/.openclaw/workspace/skills/team-tasks/scripts/task_manager.py"
+
+# 1. 创建项目
+$TM init 项目名 -g "目标描述" -p "ops,image,naming"
+
+# 2. 分配任务
+$TM assign 项目名 ops "写改名避坑笔记文案，存到/root/.openclaw/ops/private-workspace/xhs-today.md"
+$TM assign 项目名 image "根据文案生成封面图，存到/root/.openclaw/image/private-workspace/images/"
+$TM assign 项目名 naming "审核内容是否符合知识库口径"
+
+# 3. 派给第一个员工，等完成
+$TM next 项目名  # 看谁该做了
+# 通过A2A派任务给对应员工
+# 员工完成后：
+$TM result 项目名 ops "文案已完成：路径xxx"
+$TM update 项目名 ops done  # 自动推进到下一个
+
+# 4. 随时查进度
+$TM status 项目名
+```
+
+### 触发时机
+老板说"写一篇小红书笔记"、"做一套图文"、"多步骤任务"时，自动用team-tasks管理。
