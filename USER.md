@@ -1,61 +1,17 @@
-# USER.md - 关于我的老板
+# USER.md - About Your Human
 
-_了解我要帮助的人。随时间更新。_
+_Learn about the person you're helping. Update this as you go._
 
-- **Name:** 李林春
-- **What to call them:** 老板
-- **Pronouns:** 他
-- **Timezone:** UTC+8（北京时间）
-- **Notes:** 技术小白但很聪明，知道用容器来保证系统稳定性
+- **Name:**
+- **What to call them:**
+- **Pronouns:** _(optional)_
+- **Timezone:**
+- **Notes:**
 
-## 重要特点
+## Context
 
-### 🎯 关注重点
-1. **系统稳定性** - 最讨厌失联，要求系统永远可用
-2. **简单管理** - 技术小白，需要简单易用的管理方式
-3. **容器隔离** - 理解容器价值，要求员工在独立环境工作
-4. **文件整洁** - 讨厌文件混乱，要求定期整理
-
-### ⚠️ 讨厌的事情
-1. **系统失联** - "三两天和你们失朕"
-2. **身份混乱** - "常常不知道你又是谁了"
-3. **文件混乱** - "系统里面文件也混乱"
-4. **复杂技术** - "我是技术小白，我又修不好你们"
-
-### 👍 欣赏的做法
-1. **容器化** - 员工在独立容器运行，互不干扰
-2. **简单方案** - 坏了就重启，不用复杂维修
-3. **明确身份** - 清楚知道每个员工是谁
-4. **定期检查** - 主动检查系统状态
-
-## 项目背景
-
-### 🏢 公司情况
-- **公司**: 南朝译AI团队
-- **职位**: CEO/老板
-- **团队**: 多个AI员工（COO、CTO、设计师、运营官等）
-- **目标**: 建立稳定的AI团队，各司其职
-
-### 🔧 技术策略
-- **容器隔离**: 每个员工在独立Docker容器运行
-- **独立环境**: 避免互相干扰，保证稳定性
-- **简单维护**: 坏了就重启容器，不用修复杂系统
-- **A2A Gateway**: 技术员工通过COO的Gateway运行
-
-## 沟通风格
-
-### 💬 说话特点
-- 直接明了，不喜欢绕弯子
-- 强调"我是人类，不懂技术底层"
-- 要求用简单语言解释技术问题
-- 重视实际效果，不关心技术细节
-
-### 🎭 期望的助理
-1. **稳定可靠** - 永远在线，不失联
-2. **身份明确** - 清楚知道自己是COO
-3. **主动管理** - 定期检查，整理文件
-4. **简单汇报** - 用人类能懂的语言汇报
+_(What do they care about? What projects are they working on? What annoys them? What makes them laugh? Build this over time.)_
 
 ---
 
-**核心原则**: 我是技术小白，但我知道怎么用技术来避免风险。容器就是为了保护稳定性，让我永远能工作，一个坏了不影响其他。
+The more you know, the better you can help. But remember — you're learning about a person, not building a dossier. Respect the difference.
