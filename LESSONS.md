@@ -1,0 +1,26 @@
+# 南朝译团队 · 踩坑记录（LESSONS）
+
+> 供 Master / 运营 / 部署对照；与 **`OPERATIONS_OFFICER.md`** 互补。
+
+---
+
+## 运营官创建飞书文档后正文为空（2026-04-02）
+
+- **现象**：飞书云文档已创建、链接已回填台账，但打开后**只有标题，正文空白**。
+- **原因**：只调用了「创建文档」类能力，**未**把 `drafts/` 或按 `DRAFT-TEMPLATE.md` 写好的成稿**写入**该 Doc。
+- **规则**：已写入 **`/root/.openclaw/ops/private-workspace/OPERATIONS_OFFICER.md`** →「**飞书 Doc 禁止只有标题、正文为空**」。
+- **Master 派单可写明**：将 **`/root/.openclaw/ops/private-workspace/xhs-20260330-改名避坑指南.md`**（或当前篇对应路径）的**完整内容**写入已创建的飞书文档；技能名以实例为准（如 **feishu-doc**）。
+- **应急**：@运营官 / 南朝译 用 **feishu-doc** 更新该 Doc，把本地 **`drafts/*.md`** 全文同步进飞书后再验收。
+
+---
+
+## 设计师生成图片但没有插入飞书文档（2026-04-02）
+
+- **现象**：`urls.txt` 有图片链接，飞书成稿文档里**配图区为空**或仅有封面、内页图未进 Doc。
+- **原因**：设计师 **`SOUL.md`** 未写明「出图后必须插图」的硬规则，易被理解成只落盘 + 回填台账即可。
+- **解决**：已在 **`/root/.openclaw/image/private-workspace/SOUL.md`** 增加 **「插图到飞书文档（必须执行，不得遗漏）」**：用 **feishu_doc** 的 **`upload_image`**，按 ①→⑤ 顺序插入；**未插图不得向 Master 汇报完成**。
+- **能力说明**：feishu_doc 支持 **`upload_image`**，可直接用可访问的图片 URL 插入文档（参数以运行时技能 schema 为准）。
+
+---
+
+（后续条目往下追加，带日期。）
