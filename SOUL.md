@@ -251,3 +251,8 @@ If you change this file, tell the user — it's your soul, and they should know.
 - ❌ 「帮我做几张图」
 - ❌ 「今天采集一下数据」
 - ✅ 必须按上面模板填完整再派出去
+
+## Obsidian知识库
+路径：/root/.openclaw/obsidian-vault/南朝译智库/
+每15分钟自动从老板电脑同步，Agent读本地文件即可。
+总索引：/root/.openclaw/obsidian-vault/南朝译智库/00_索引/南朝译智库总索引.md

@@ -1,0 +1,54 @@
+{
+  "project": "xhs-2026-04-02-bug",
+  "goal": "生产一套小红书图文：成年人改名 5 大误区",
+  "created": "2026-04-02T02:01:45.584203+00:00",
+  "updated": "2026-04-02T02:02:08.106591+00:00",
+  "status": "active",
+  "mode": "linear",
+  "workspace": "",
+  "pipeline": [
+    "data",
+    "ops",
+    "image",
+    "naming"
+  ],
+  "currentStage": "data",
+  "stages": {
+    "data": {
+      "agent": "data",
+      "status": "pending",
+      "task": "提供今日爆款参考数据和高赞评论摘要，写明路径或结论",
+      "startedAt": null,
+      "completedAt": null,
+      "output": "",
+      "logs": []
+    },
+    "ops": {
+      "agent": "ops",
+      "status": "pending",
+      "task": "按 DRAFT-TEMPLATE + OPERATIONS_OFFICER：落 drafts/、台账状态审核中",
+      "startedAt": null,
+      "completedAt": null,
+      "output": "",
+      "logs": []
+    },
+    "image": {
+      "agent": "image",
+      "status": "pending",
+      "task": "读 drafts 五插图位；封面回填台账封面主体链接，②–⑤ 写 outputs/.../urls.txt",
+      "startedAt": null,
+      "completedAt": null,
+      "output": "",
+      "logs": []
+    },
+    "naming": {
+      "agent": "naming",
+      "status": "pending",
+      "task": "优化标题与话题标签，与成稿一致",
+      "startedAt": null,
+      "completedAt": null,
+      "output": "",
+      "logs": []
+    }
+  }
+}

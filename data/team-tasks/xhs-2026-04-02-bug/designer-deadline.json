@@ -1,0 +1,20 @@
+{
+  "task": "成年人改名 5 大误区｜避坑指南 - 5 张配图返工",
+  "assignedAt": "2026-04-02T02:05:00Z",
+  "deadline": "2026-04-02T02:25:00Z",
+  "deadlineMinutes": 20,
+  "status": "pending",
+  "reminderSet": true,
+  "document": "https://fcnnipdwrnch.feishu.cn/docx/S5CYdQHjNo6iPmxkwWgc08utnbe",
+  "record_id": "rec277SDLgs3pR",
+  "requirements": [
+    "南老师本人出镜（剪影/背影/IP 化形象）",
+    "5 张图色调、字体、版式一致",
+    "参考飞书知识库 05_品牌视觉",
+    "使用 feishu_doc upload_image 插入文档"
+  ],
+  "deliverables": [
+    "5 个新 block_id",
+    "更新台账「封面文件链接」"
+  ]
+}
